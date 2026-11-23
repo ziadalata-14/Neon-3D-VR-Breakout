@@ -1,0 +1,3027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>NEON 3D VR BREAKOUT</title>
+  <style>
+    /* =========================================================================
+       CORE LAYOUT & CYBER-ARCADE OVERLAY STYLING
+       ========================================================================= */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #020410;
+      font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      color: #e8f7ff;
+    }
+
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Top Minimal Controls Bar (Desktop / Non-VR) */
+    #top-bar {
+      position: fixed;
+      top: 14px;
+      right: 16px;
+      z-index: 20;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      pointer-events: auto;
+    }
+
+    .hud-btn {
+      background: rgba(5, 16, 38, 0.72);
+      border: 1px solid rgba(0, 240, 255, 0.5);
+      color: #bdf8ff;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.22);
+      transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .hud-btn:hover {
+      background: rgba(0, 240, 255, 0.2);
+      box-shadow: 0 0 22px rgba(0, 240, 255, 0.52);
+      transform: translateY(-1px);
+    }
+
+    .hud-btn:active {
+      transform: scale(0.96);
+    }
+
+    .hud-btn.vr-pill {
+      border-color: rgba(255, 43, 214, 0.65);
+      color: #ffb8f0;
+      box-shadow: 0 0 16px rgba(255, 43, 214, 0.28);
+    }
+
+    /* Translucent Start / Game Over Overlay */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: radial-gradient(circle at center, rgba(6, 14, 38, 0.64) 0%, rgba(2, 3, 14, 0.88) 100%);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: opacity 0.3s ease;
+    }
+
+    .overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .panel {
+      width: 100%;
+      max-width: 580px;
+      background: linear-gradient(155deg, rgba(7, 19, 46, 0.92), rgba(16, 7, 38, 0.94));
+      border: 1.5px solid rgba(0, 245, 255, 0.55);
+      border-radius: 22px;
+      padding: 28px 26px;
+      box-shadow:
+        0 0 46px rgba(0, 240, 255, 0.22),
+        inset 0 0 32px rgba(138, 43, 226, 0.18);
+      text-align: center;
+    }
+
+    .title-glow {
+      font-size: clamp(1.7rem, 4.5vw, 2.55rem);
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #00f5ff, #ffffff, #ff9d00, #ff2bd6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 16px rgba(0, 245, 255, 0.5));
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: #8cc9e8;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+      text-align: left;
+    }
+
+    .control-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(0, 240, 255, 0.24);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+
+    .control-card h3 {
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #00f5ff;
+      margin-bottom: 6px;
+    }
+
+    .control-card.vr h3 {
+      color: #ff44dd;
+    }
+
+    .control-card p {
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: #cce6f4;
+    }
+
+    .powerup-legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 22px;
+    }
+
+    .pill {
+      font-size: 0.74rem;
+      font-weight: 800;
+      padding: 5px 11px;
+      border-radius: 999px;
+      letter-spacing: 0.06em;
+      border: 1px solid currentColor;
+      background: rgba(0, 0, 0, 0.4);
+    }
+
+    .pill.wide  { color: #00f5ff; }
+    .pill.multi { color: #ffaa00; }
+    .pill.laser { color: #ff2bd6; }
+    .pill.life  { color: #39ff14; }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .btn-primary {
+      flex: 1 1 180px;
+      padding: 14px 20px;
+      border-radius: 14px;
+      border: 1.5px solid #00f5ff;
+      background: linear-gradient(135deg, rgba(0, 210, 255, 0.28), rgba(0, 110, 255, 0.38));
+      color: #ffffff;
+      font-size: 0.98rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 0 24px rgba(0, 245, 255, 0.34);
+      transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.46), rgba(0, 130, 255, 0.54));
+      box-shadow: 0 0 34px rgba(0, 245, 255, 0.6);
+    }
+
+    .btn-vr {
+      flex: 1 1 180px;
+      padding: 14px 20px;
+      border-radius: 14px;
+      border: 1.5px solid #ff2bd6;
+      background: linear-gradient(135deg, rgba(255, 43, 214, 0.3), rgba(140, 0, 255, 0.4));
+      color: #ffffff;
+      font-size: 0.98rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 0 24px rgba(255, 43, 214, 0.34);
+      transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    }
+
+    .btn-vr:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 0 34px rgba(255, 43, 214, 0.65);
+    }
+
+    .btn-vr:disabled {
+      opacity: 0.42;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .vr-status {
+      font-size: 0.78rem;
+      color: #8ea9c4;
+      min-height: 18px;
+    }
+
+    /* Desktop Banner Notification */
+    #banner {
+      position: fixed;
+      top: 16%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      z-index: 25;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.24s ease, transform 0.24s ease;
+      text-align: center;
+      padding: 12px 30px;
+      border-radius: 16px;
+      background: rgba(4, 12, 32, 0.8);
+      border: 1.5px solid rgba(0, 245, 255, 0.65);
+      box-shadow: 0 0 30px rgba(0, 245, 255, 0.4);
+    }
+
+    #banner.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    #banner-title {
+      font-size: clamp(1.3rem, 3.4vw, 2rem);
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      color: #ffffff;
+      text-shadow: 0 0 16px #00f5ff;
+    }
+
+    #banner-sub {
+      font-size: 0.88rem;
+      color: #9befff;
+      letter-spacing: 0.08em;
+      margin-top: 3px;
+    }
+
+    /* Launch Hint */
+    #launch-hint {
+      position: fixed;
+      bottom: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      pointer-events: none;
+      padding: 8px 20px;
+      border-radius: 999px;
+      background: rgba(4, 15, 36, 0.76);
+      border: 1px solid rgba(0, 245, 255, 0.5);
+      color: #c8f9ff;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+
+    #launch-hint.show {
+      opacity: 1;
+    }
+
+    /* Final Stats */
+    .final-stats {
+      display: flex;
+      justify-content: center;
+      gap: 18px;
+      margin: 16px 0 22px;
+    }
+
+    .stat-box {
+      background: rgba(0, 245, 255, 0.08);
+      border: 1px solid rgba(0, 245, 255, 0.34);
+      border-radius: 14px;
+      padding: 12px 20px;
+      min-width: 128px;
+    }
+
+    .stat-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      color: #8cc9e8;
+      text-transform: uppercase;
+    }
+
+    .stat-val {
+      font-size: 1.55rem;
+      font-weight: 900;
+      color: #ffffff;
+      text-shadow: 0 0 12px rgba(0, 245, 255, 0.65);
+      margin-top: 2px;
+    }
+  </style>
+
+  <!-- ES Module Import Map for Three.js r160 -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <!-- Minimal Top Bar for Desktop Controls -->
+  <div id="top-bar">
+    <button id="btn-mute" class="hud-btn" title="Toggle Audio">🔊 SOUND ON</button>
+    <button id="btn-vr-top" class="hud-btn vr-pill" style="display:none;">🥽 ENTER VR</button>
+    <button id="btn-menu" class="hud-btn" style="display:none;">☰ MENU</button>
+  </div>
+
+  <!-- Desktop Banner Notification -->
+  <div id="banner">
+    <div id="banner-title">LEVEL 1</div>
+    <div id="banner-sub">CLASSIC WALL</div>
+  </div>
+
+  <!-- Launch Hint -->
+  <div id="launch-hint">CLICK / TAP OR PRESS SPACE TO LAUNCH</div>
+
+  <!-- Start Menu Overlay -->
+  <div id="start-overlay" class="overlay">
+    <div class="panel">
+      <div class="title-glow">NEON 3D VR BREAKOUT</div>
+      <div class="subtitle">Holographic Tunnel Brick Breaker</div>
+
+      <div class="controls-grid">
+        <div class="control-card">
+          <h3>Desktop / Mobile</h3>
+          <p>Move mouse or drag touch to swing your holographic energy racket. Click, tap, or press <strong>Space</strong> to launch balls &amp; fire twin lasers.</p>
+        </div>
+        <div class="control-card vr">
+          <h3>Meta Quest / WebXR VR</h3>
+          <p>Hold and tilt the energy racket directly in 3D space. Pull the <strong>Trigger</strong> to launch balls, fire lasers, and feel crisp haptic impacts.</p>
+        </div>
+      </div>
+
+      <div class="powerup-legend">
+        <span class="pill wide">WIDE RACKET</span>
+        <span class="pill multi">MULTI-BALL</span>
+        <span class="pill laser">TWIN LASERS</span>
+        <span class="pill life">+1 LIFE</span>
+      </div>
+
+      <div class="btn-row">
+        <button id="btn-play-desktop" class="btn-primary">PLAY DESKTOP</button>
+        <button id="btn-enter-vr" class="btn-vr" disabled>ENTER VR</button>
+      </div>
+      <div id="vr-status" class="vr-status">Checking WebXR headset support...</div>
+    </div>
+  </div>
+
+  <!-- Game Over / Victory Overlay -->
+  <div id="end-overlay" class="overlay hidden">
+    <div class="panel">
+      <div id="end-title" class="title-glow">GAME OVER</div>
+      <div id="end-subtitle" class="subtitle">Tunnel Defense Breached</div>
+
+      <div class="final-stats">
+        <div class="stat-box">
+          <div class="stat-label">Final Score</div>
+          <div id="final-score" class="stat-val">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Level Reached</div>
+          <div id="final-level" class="stat-val">1 / 6</div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button id="btn-restart" class="btn-primary">PLAY AGAIN</button>
+        <button id="btn-end-vr" class="btn-vr" style="display:none;">ENTER VR</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    /* =========================================================================
+       1. CONSTANTS & OCTAGONAL TUNNEL DIMENSIONS
+       ========================================================================= */
+    const TUNNEL = {
+      width: 4.4,        // X: -2.2 to +2.2
+      height: 3.2,       // Y:  0.0 to +3.2 (standing eye height ~1.6m)
+      depth: 14.0,       // Z:  0.0 to -14.0
+      chamfer: 0.62,     // Octagonal corner chamfer size
+      halfW: 2.2,
+      halfH: 1.6,
+      frontZ: 0.65,
+      backZ: -14.0,
+      desktopPaddleZ: -1.42,
+      missZ: 0.45
+    };
+
+    const BASE_PADDLE = {
+      width: 0.94,
+      height: 0.78
+    };
+
+    const BALL_RADIUS = 0.135;
+    const MAX_LIVES = 5;
+
+    const BRICK_COLORS = {
+      blue:    0x00d8ff,
+      magenta: 0xff2bd6,
+      orange:  0xff7b00,
+      lime:    0x45ff1a,
+      gold:    0xffd000
+    };
+
+    const POWERUP_TYPES = [
+      { id: 'WIDE',  color: 0x00f5ff, icon: '↔', title: 'WIDE RACKET' },
+      { id: 'MULTI', color: 0xff9d00, icon: '✦', title: 'MULTI-BALL!' },
+      { id: 'LASER', color: 0xff2bd6, icon: '⚡', title: 'TWIN LASERS!' },
+      { id: 'LIFE',  color: 0x39ff14, icon: '+', title: '+1 EXTRA LIFE' }
+    ];
+
+    /* =========================================================================
+       2. PROCEDURAL WEB AUDIO ENGINE (LAYERED SHATTER, SUB-BASS & CHIMES)
+       ========================================================================= */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+
+      unlock() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+
+      setMuted(m) {
+        this.muted = m;
+      }
+
+      playPaddleBounce() {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        // Electric energy thump + resonant zing
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(200, now);
+        osc.frequency.exponentialRampToValueAtTime(560, now + 0.055);
+        osc.frequency.exponentialRampToValueAtTime(140, now + 0.16);
+        gain.gain.setValueAtTime(0.24, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.17);
+        osc.connect(gain).connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.18);
+
+        // Subtle electric crackle overtone
+        this._noiseBurst(0.05, 0.08, 3200);
+      }
+
+      playWallBounce() {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.exponentialRampToValueAtTime(175, now + 0.075);
+        gain.gain.setValueAtTime(0.11, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.085);
+        osc.connect(gain).connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.09);
+      }
+
+      playBrickShatter(combo = 1) {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+
+        // 1) Punchy Sub-Bass Impact Drop
+        const sub = this.ctx.createOscillator();
+        const subGain = this.ctx.createGain();
+        sub.type = 'sine';
+        sub.frequency.setValueAtTime(125, now);
+        sub.frequency.exponentialRampToValueAtTime(36, now + 0.14);
+        subGain.gain.setValueAtTime(0.26, now);
+        subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+        sub.connect(subGain).connect(this.ctx.destination);
+        sub.start(now);
+        sub.stop(now + 0.17);
+
+        // 2) Combo-Scaled Pentatonic Harmonic Chime
+        const semitones = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
+        const semi = semitones[Math.min(combo - 1, semitones.length - 1)];
+        const baseFreq = 440 * Math.pow(2, semi / 12);
+
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const chimeGain = this.ctx.createGain();
+        osc1.type = 'sine';
+        osc2.type = 'triangle';
+        osc1.frequency.setValueAtTime(baseFreq, now);
+        osc1.frequency.exponentialRampToValueAtTime(baseFreq * 1.48, now + 0.12);
+        osc2.frequency.setValueAtTime(baseFreq * 1.5, now);
+        chimeGain.gain.setValueAtTime(0.15, now);
+        chimeGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+        osc1.connect(chimeGain);
+        osc2.connect(chimeGain);
+        chimeGain.connect(this.ctx.destination);
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.23);
+        osc2.stop(now + 0.23);
+
+        // 3) Crystalline Glass / Cyber Shatter Tinkle
+        const tinkleFreqs = [2450, 3180, 4220];
+        tinkleFreqs.forEach((f, idx) => {
+          const tOsc = this.ctx.createOscillator();
+          const tGain = this.ctx.createGain();
+          tOsc.type = 'sine';
+          const tStart = now + idx * 0.015;
+          tOsc.frequency.setValueAtTime(f + Math.random() * 450, tStart);
+          tGain.gain.setValueAtTime(0.045, tStart);
+          tGain.gain.exponentialRampToValueAtTime(0.001, tStart + 0.09);
+          tOsc.connect(tGain).connect(this.ctx.destination);
+          tOsc.start(tStart);
+          tOsc.stop(tStart + 0.1);
+        });
+
+        this._noiseBurst(0.09, 0.13, 2800);
+      }
+
+      playArmorClang() {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const freqs = [460, 725, 1180];
+        freqs.forEach((f, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = idx === 0 ? 'square' : 'triangle';
+          osc.frequency.setValueAtTime(f, now);
+          osc.frequency.exponentialRampToValueAtTime(f * 0.9, now + 0.15);
+          gain.gain.setValueAtTime(0.09 / (idx + 1), now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+          osc.connect(gain).connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.17);
+        });
+        this._noiseBurst(0.04, 0.07, 4000);
+      }
+
+      playLaser() {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(1400, now);
+        osc.frequency.exponentialRampToValueAtTime(220, now + 0.11);
+        gain.gain.setValueAtTime(0.09, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        osc.connect(gain).connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.13);
+      }
+
+      playPowerUp() {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const notes = [523.25, 659.25, 783.99, 1046.5];
+        notes.forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          const t = now + i * 0.055;
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.14, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
+          osc.connect(gain).connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.25);
+        });
+      }
+
+      playLifeLost() {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(290, now);
+        osc.frequency.exponentialRampToValueAtTime(64, now + 0.45);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.48);
+        osc.connect(gain).connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.5);
+      }
+
+      playLevelClear() {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const notes = [440, 554.37, 659.25, 880, 1108.73];
+        notes.forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          const t = now + i * 0.08;
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.16, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+          osc.connect(gain).connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.36);
+        });
+      }
+
+      _noiseBurst(duration, volume, filterFreq) {
+        const bufferSize = Math.floor(this.ctx.sampleRate * duration);
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 1.5);
+        }
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.value = filterFreq;
+        const gain = this.ctx.createGain();
+        gain.gain.value = volume;
+        noise.connect(filter).connect(gain).connect(this.ctx.destination);
+        noise.start();
+      }
+    }
+
+    const sound = new SoundEngine();
+
+    /* =========================================================================
+       3. SCENE, RENDERER, LIGHTING & SHARED PROCEDURAL GLOW TEXTURES
+       ========================================================================= */
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x020410);
+    scene.fog = new THREE.FogExp2(0x020410, 0.032);
+
+    const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.05, 65);
+    const desktopCamPos = new THREE.Vector3(0, 1.56, 0.56);
+    camera.position.copy(desktopCamPos);
+
+    const cameraRig = new THREE.Group();
+    cameraRig.add(camera);
+    scene.add(cameraRig);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
+    renderer.xr.setReferenceSpaceType('local-floor');
+    container.appendChild(renderer.domElement);
+
+    // Rich cyber-arcade lighting
+    const ambientLight = new THREE.AmbientLight(0x4b6ba6, 1.0);
+    scene.add(ambientLight);
+
+    const dirLight1 = new THREE.DirectionalLight(0x00f5ff, 1.15);
+    dirLight1.position.set(2.5, 4.5, 2.5);
+    scene.add(dirLight1);
+
+    const dirLight2 = new THREE.DirectionalLight(0xff2bd6, 0.9);
+    dirLight2.position.set(-2.5, 1.2, -5.0);
+    scene.add(dirLight2);
+
+    // Real-time fiery point light following primary ball
+    const ballLight = new THREE.PointLight(0xff8c22, 3.8, 8.5, 1.4);
+    ballLight.position.set(0, 1.6, -2);
+    scene.add(ballLight);
+
+    // Dedicated high-intensity impact flash light for explosive brick shatters
+    const impactFlashLight = new THREE.PointLight(0xffbb44, 0, 9.5, 1.4);
+    scene.add(impactFlashLight);
+    let impactFlashTimer = 0;
+
+    // Procedural Soft Radial Glow Texture Generator (reused for sprites & halos)
+    function createRadialGlowTexture(stops) {
+      const c = document.createElement('canvas');
+      c.width = 128;
+      c.height = 128;
+      const ctx = c.getContext('2d');
+      const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+      stops.forEach(([offset, color]) => grad.addColorStop(offset, color));
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 128, 128);
+      const tex = new THREE.CanvasTexture(c);
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    const fireGlowTex = createRadialGlowTexture([
+      [0.0,  'rgba(255, 255, 240, 1.0)'],
+      [0.24, 'rgba(255, 215, 95, 0.92)'],
+      [0.52, 'rgba(255, 105, 15, 0.48)'],
+      [0.82, 'rgba(180, 30, 0, 0.14)'],
+      [1.0,  'rgba(0, 0, 0, 0.0)']
+    ]);
+
+    const cyanGlowTex = createRadialGlowTexture([
+      [0.0,  'rgba(235, 255, 255, 1.0)'],
+      [0.3,  'rgba(0, 245, 255, 0.72)'],
+      [0.65, 'rgba(0, 140, 255, 0.22)'],
+      [1.0,  'rgba(0, 0, 0, 0.0)']
+    ]);
+
+    /* =========================================================================
+       4. CHAMFERED OCTAGONAL NEON WIREFRAME TUNNEL & DEPTH RING
+       ========================================================================= */
+    function getOctagonPoints() {
+      const xMin = -TUNNEL.halfW, xMax = TUNNEL.halfW;
+      const yMin = 0, yMax = TUNNEL.height;
+      const c = TUNNEL.chamfer;
+      return [
+        [xMin + c, yMin],
+        [xMax - c, yMin],
+        [xMax,     yMin + c],
+        [xMax,     yMax - c],
+        [xMax - c, yMax],
+        [xMin + c, yMax],
+        [xMin,     yMax - c],
+        [xMin,     yMin + c]
+      ];
+    }
+
+    const OCTA_PTS = getOctagonPoints();
+
+    function buildOctagonalTunnel() {
+      const group = new THREE.Group();
+      const zFront = TUNNEL.frontZ;
+      const zBack = TUNNEL.backZ;
+
+      // Dark deep-navy/violet octagonal inner shell
+      const shellVerts = [];
+      for (let i = 0; i < 8; i++) {
+        const [x1, y1] = OCTA_PTS[i];
+        const [x2, y2] = OCTA_PTS[(i + 1) % 8];
+        // Two triangles facing inward
+        shellVerts.push(x1, y1, zFront, x2, y2, zFront, x2, y2, zBack);
+        shellVerts.push(x1, y1, zFront, x2, y2, zBack,  x1, y1, zBack);
+      }
+      const shellGeo = new THREE.BufferGeometry();
+      shellGeo.setAttribute('position', new THREE.Float32BufferAttribute(shellVerts, 3));
+      shellGeo.computeVertexNormals();
+      const shellMat = new THREE.MeshBasicMaterial({
+        color: 0x05091e,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.9
+      });
+      group.add(new THREE.Mesh(shellGeo, shellMat));
+
+      // Glowing wireframe grids (Cyan primary ribs/corners + Magenta/Violet inner mesh)
+      const cyanVerts = [];
+      const magentaVerts = [];
+
+      // 8 Octagonal corner longitudinal lines + sub-grid lines on every face
+      for (let i = 0; i < 8; i++) {
+        const [x1, y1] = OCTA_PTS[i];
+        const [x2, y2] = OCTA_PTS[(i + 1) % 8];
+        // Main corner seam
+        cyanVerts.push(x1, y1, zFront, x1, y1, zBack);
+
+        // Sub-divisions along each wall face
+        const subDivs = (i === 0 || i === 4) ? 6 : (i === 2 || i === 6) ? 5 : 2;
+        for (let s = 1; s < subDivs; s++) {
+          const t = s / subDivs;
+          const sx = x1 + (x2 - x1) * t;
+          const sy = y1 + (y2 - y1) * t;
+          magentaVerts.push(sx, sy, zFront, sx, sy, zBack);
+        }
+      }
+
+      // Cross-section octagonal ribs along Z
+      for (let z = 0; z >= zBack; z -= 0.9) {
+        const isMajor = Math.round(Math.abs(z / 0.9)) % 2 === 0;
+        const arr = isMajor ? cyanVerts : magentaVerts;
+        for (let i = 0; i < 8; i++) {
+          const [x1, y1] = OCTA_PTS[i];
+          const [x2, y2] = OCTA_PTS[(i + 1) % 8];
+          arr.push(x1, y1, z, x2, y2, z);
+        }
+      }
+
+      // Dense cyber side-panel mesh accents near entrance (like reference concept)
+      for (let side of [-1, 1]) {
+        const wx = side * (TUNNEL.halfW - 0.015);
+        for (let z = -0.2; z >= -3.8; z -= 0.24) {
+          cyanVerts.push(wx, TUNNEL.chamfer, z, wx, TUNNEL.height - TUNNEL.chamfer, z);
+        }
+      }
+
+      // Back wall grid
+      for (let x = -1.6; x <= 1.6; x += 0.53) {
+        cyanVerts.push(x, 0.2, zBack, x, TUNNEL.height - 0.2, zBack);
+      }
+      for (let y = 0.5; y <= 2.7; y += 0.55) {
+        magentaVerts.push(-TUNNEL.halfW + 0.2, y, zBack, TUNNEL.halfW - 0.2, y, zBack);
+      }
+
+      const cyanGeo = new THREE.BufferGeometry();
+      cyanGeo.setAttribute('position', new THREE.Float32BufferAttribute(cyanVerts, 3));
+      group.add(new THREE.LineSegments(
+        cyanGeo,
+        new THREE.LineBasicMaterial({ color: 0x00d8ff, transparent: true, opacity: 0.42 })
+      ));
+
+      const magGeo = new THREE.BufferGeometry();
+      magGeo.setAttribute('position', new THREE.Float32BufferAttribute(magentaVerts, 3));
+      group.add(new THREE.LineSegments(
+        magGeo,
+        new THREE.LineBasicMaterial({ color: 0x9b2cff, transparent: true, opacity: 0.34 })
+      ));
+
+      // Subtle glowing 3D corner rails along the 8 octagonal vertices
+      const railGeo = new THREE.BoxGeometry(0.026, 0.026, TUNNEL.depth + 0.7);
+      const railMat = new THREE.MeshBasicMaterial({
+        color: 0x00f0ff,
+        transparent: true,
+        opacity: 0.55
+      });
+      OCTA_PTS.forEach(([vx, vy]) => {
+        const rail = new THREE.Mesh(railGeo, railMat);
+        rail.position.set(vx, vy, (zFront + zBack) / 2);
+        group.add(rail);
+      });
+
+      return group;
+    }
+
+    scene.add(buildOctagonalTunnel());
+
+    // Moving Octagonal Perimeter Depth-Tracking Ring
+    function createOctagonalDepthRing() {
+      const group = new THREE.Group();
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 0.88,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      const scale = 0.99;
+      for (let i = 0; i < 8; i++) {
+        const p1 = new THREE.Vector3(OCTA_PTS[i][0] * scale, OCTA_PTS[i][1], 0);
+        const p2 = new THREE.Vector3(OCTA_PTS[(i + 1) % 8][0] * scale, OCTA_PTS[(i + 1) % 8][1], 0);
+        const len = p1.distanceTo(p2);
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(len, 0.032, 0.032), mat);
+        bar.position.copy(p1).add(p2).multiplyScalar(0.5);
+        bar.rotation.z = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+        group.add(bar);
+      }
+
+      group.userData.material = mat;
+      return group;
+    }
+
+    const depthRing = createOctagonalDepthRing();
+    depthRing.position.z = -2.5;
+    scene.add(depthRing);
+
+    // Incoming Ball Target Projection Ring on the Paddle Plane
+    const targetRingMat = new THREE.MeshBasicMaterial({
+      color: 0xffaa33,
+      transparent: true,
+      opacity: 0,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const targetRing = new THREE.Mesh(new THREE.RingGeometry(0.11, 0.145, 24), targetRingMat);
+    scene.add(targetRing);
+
+    /* =========================================================================
+       5. ANGLED DIEGETIC HOLOGRAPHIC HUD WINGS & CYAN HORIZON ENERGY LINE
+       ========================================================================= */
+    class HoloHUDPanel {
+      constructor(width, height, canvasW, canvasH) {
+        this.canvas = document.createElement('canvas');
+        this.canvas.width = canvasW;
+        this.canvas.height = canvasH;
+        this.ctx = this.canvas.getContext('2d');
+        this.texture = new THREE.CanvasTexture(this.canvas);
+        this.texture.minFilter = THREE.LinearFilter;
+
+        const mat = new THREE.MeshBasicMaterial({
+          map: this.texture,
+          transparent: true,
+          opacity: 0.95,
+          side: THREE.DoubleSide,
+          depthWrite: false
+        });
+        this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), mat);
+      }
+
+      update(drawFn) {
+        const ctx = this.ctx;
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        drawFn(ctx, this.canvas.width, this.canvas.height);
+        this.texture.needsUpdate = true;
+      }
+    }
+
+    // Bottom-Left Wing (SCORE & LEVEL)
+    const leftHUD = new HoloHUDPanel(1.38, 0.42, 540, 164);
+    leftHUD.mesh.position.set(-1.32, 0.34, -1.92);
+    leftHUD.mesh.rotation.y = 0.28;
+    leftHUD.mesh.rotation.x = -0.28;
+    scene.add(leftHUD.mesh);
+
+    // Bottom-Right Wing (LIVES, COMBO & POWER-UPS)
+    const rightHUD = new HoloHUDPanel(1.38, 0.42, 540, 164);
+    rightHUD.mesh.position.set(1.32, 0.34, -1.92);
+    rightHUD.mesh.rotation.y = -0.28;
+    rightHUD.mesh.rotation.x = -0.28;
+    scene.add(rightHUD.mesh);
+
+    // Glowing Cyan Horizon Energy Line connecting the two HUD wings
+    function buildHUDHorizonLine() {
+      const group = new THREE.Group();
+      const pts = [
+        new THREE.Vector3(-2.02, 0.22, -1.70),
+        new THREE.Vector3(-0.76, 0.45, -2.02),
+        new THREE.Vector3( 0.76, 0.45, -2.02),
+        new THREE.Vector3( 2.02, 0.22, -1.70)
+      ];
+      const curve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.1);
+      const coreTube = new THREE.Mesh(
+        new THREE.TubeGeometry(curve, 36, 0.008, 6, false),
+        new THREE.MeshBasicMaterial({ color: 0xc8ffff })
+      );
+      const glowTube = new THREE.Mesh(
+        new THREE.TubeGeometry(curve, 36, 0.028, 6, false),
+        new THREE.MeshBasicMaterial({
+          color: 0x00e5ff,
+          transparent: true,
+          opacity: 0.36,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        })
+      );
+      group.add(coreTube, glowTube);
+      return group;
+    }
+    scene.add(buildHUDHorizonLine());
+
+    // Floating 3D Banner in tunnel for VR & Desktop announcements
+    const vrBannerHUD = new HoloHUDPanel(2.45, 0.72, 768, 224);
+    vrBannerHUD.mesh.position.set(0, 2.38, -3.25);
+    vrBannerHUD.mesh.visible = false;
+    scene.add(vrBannerHUD.mesh);
+
+    function drawWingFrame(ctx, w, h, accentColor, slantRight = true) {
+      ctx.save();
+      ctx.beginPath();
+      if (slantRight) {
+        ctx.moveTo(14, 14);
+        ctx.lineTo(w - 44, 14);
+        ctx.lineTo(w - 10, h - 14);
+        ctx.lineTo(14, h - 14);
+      } else {
+        ctx.moveTo(44, 14);
+        ctx.lineTo(w - 14, 14);
+        ctx.lineTo(w - 14, h - 14);
+        ctx.lineTo(10, h - 14);
+      }
+      ctx.closePath();
+
+      const grad = ctx.createLinearGradient(0, 0, w, h);
+      grad.addColorStop(0, 'rgba(3, 18, 42, 0.80)');
+      grad.addColorStop(1, 'rgba(6, 30, 58, 0.52)');
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      ctx.strokeStyle = accentColor;
+      ctx.lineWidth = 4;
+      ctx.shadowColor = accentColor;
+      ctx.shadowBlur = 14;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    /* =========================================================================
+       6. HERO VISUAL: SCULPTED HOLOGRAPHIC ENERGY RACKET PADDLE
+       ========================================================================= */
+    function createRacketHeadShape(hw, hh, r) {
+      // Ergonomic rounded-square / pickleball silhouette tapering into throat
+      const s = new THREE.Shape();
+      s.moveTo(-hw + r, hh);
+      s.lineTo(hw - r, hh);
+      s.quadraticCurveTo(hw, hh, hw, hh - r);
+      s.lineTo(hw, -hh * 0.42);
+      s.quadraticCurveTo(hw, -hh * 0.94, hw * 0.36, -hh);
+      s.lineTo(-hw * 0.36, -hh);
+      s.quadraticCurveTo(-hw, -hh * 0.94, -hw, -hh * 0.42);
+      s.lineTo(-hw, hh - r);
+      s.quadraticCurveTo(-hw, hh, -hw + r, hh);
+      return s;
+    }
+
+    function createRacketFaceTexture() {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 512;
+      const ctx = c.getContext('2d');
+
+      // Translucent cyan holographic energy wash
+      const grad = ctx.createRadialGradient(256, 256, 12, 256, 256, 256);
+      grad.addColorStop(0.0, 'rgba(130, 255, 255, 0.28)');
+      grad.addColorStop(0.55, 'rgba(0, 225, 255, 0.16)');
+      grad.addColorStop(0.86, 'rgba(0, 245, 255, 0.36)');
+      grad.addColorStop(1.0, 'rgba(140, 255, 255, 0.65)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 512, 512);
+
+      // Fine holographic hex / circuit grid
+      ctx.strokeStyle = 'rgba(0, 245, 255, 0.34)';
+      ctx.lineWidth = 1.6;
+      const step = 28;
+      for (let x = 0; x <= 512; x += step) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 512); ctx.stroke();
+      }
+      for (let y = 0; y <= 512; y += step) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(512, y); ctx.stroke();
+      }
+
+      // Diagonal circuit traces
+      ctx.strokeStyle = 'rgba(140, 255, 255, 0.38)';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(256 + Math.cos(a) * 118, 256 + Math.sin(a) * 118);
+        ctx.lineTo(256 + Math.cos(a) * 215, 256 + Math.sin(a) * 215);
+        ctx.stroke();
+      }
+
+      // Radial degree ticks around outer target ring
+      ctx.strokeStyle = 'rgba(190, 255, 255, 0.78)';
+      for (let i = 0; i < 48; i++) {
+        const a = (i / 48) * Math.PI * 2;
+        const inner = (i % 4 === 0) ? 168 : 178;
+        ctx.lineWidth = (i % 4 === 0) ? 3 : 1.5;
+        ctx.beginPath();
+        ctx.moveTo(256 + Math.cos(a) * inner, 256 + Math.sin(a) * inner);
+        ctx.lineTo(256 + Math.cos(a) * 192, 256 + Math.sin(a) * 192);
+        ctx.stroke();
+      }
+
+      // Outer static sci-fi ring
+      ctx.strokeStyle = 'rgba(160, 255, 255, 0.85)';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(256, 256, 152, 0, Math.PI * 2);
+      ctx.stroke();
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    function createRotatingReticleTexture() {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 512;
+      const ctx = c.getContext('2d');
+
+      // Broken concentric sci-fi arcs
+      ctx.strokeStyle = 'rgba(210, 255, 255, 0.92)';
+      ctx.lineWidth = 7;
+      for (let i = 0; i < 3; i++) {
+        const start = i * (Math.PI * 2 / 3) + 0.18;
+        ctx.beginPath();
+        ctx.arc(256, 256, 122, start, start + 1.35);
+        ctx.stroke();
+      }
+
+      // Inner dashed ring
+      ctx.strokeStyle = 'rgba(0, 245, 255, 0.95)';
+      ctx.lineWidth = 5;
+      ctx.setLineDash([18, 12]);
+      ctx.beginPath();
+      ctx.arc(256, 256, 78, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Core glowing bullseye
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(256, 256, 36, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 4 cardinal notches
+      for (let i = 0; i < 4; i++) {
+        const a = i * Math.PI / 2;
+        ctx.beginPath();
+        ctx.moveTo(256 + Math.cos(a) * 46, 256 + Math.sin(a) * 46);
+        ctx.lineTo(256 + Math.cos(a) * 104, 256 + Math.sin(a) * 104);
+        ctx.stroke();
+      }
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    // Build the Hero Holographic Energy Racket
+    const paddleGroup = new THREE.Group();
+    const paddleVisual = new THREE.Group(); // Child group for recoil kickback & hit bounce
+    paddleGroup.add(paddleVisual);
+
+    const headHW = BASE_PADDLE.width / 2;
+    const headHH = BASE_PADDLE.height / 2;
+    const racketShape = createRacketHeadShape(headHW, headHH, 0.21);
+
+    // 1) Inner See-Through Holographic Face
+    const faceGeo = new THREE.ShapeGeometry(racketShape, 24);
+    // Normalize UVs to 0..1 across the racket head
+    const posAttr = faceGeo.attributes.position;
+    const uvArr = new Float32Array(posAttr.count * 2);
+    for (let i = 0; i < posAttr.count; i++) {
+      uvArr[i * 2]     = (posAttr.getX(i) + headHW) / (headHW * 2);
+      uvArr[i * 2 + 1] = (posAttr.getY(i) + headHH) / (headHH * 2);
+    }
+    faceGeo.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
+
+    const paddleFaceMat = new THREE.MeshBasicMaterial({
+      map: createRacketFaceTexture(),
+      transparent: true,
+      opacity: 0.74,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const paddleFace = new THREE.Mesh(faceGeo, paddleFaceMat);
+    paddleVisual.add(paddleFace);
+
+    // 2) Subtle Animated Rotating Sci-Fi Reticle Plane inside Racket Face
+    const reticleMat = new THREE.MeshBasicMaterial({
+      map: createRotatingReticleTexture(),
+      transparent: true,
+      opacity: 0.82,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const paddleReticle = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.56), reticleMat);
+    paddleReticle.position.z = 0.008;
+    paddleVisual.add(paddleReticle);
+
+    // 3) Layered 3D Beveled Outer Glowing Rim (Core Tube + Soft Bloom Halo + Inner Lip)
+    const rim2D = racketShape.getSpacedPoints(64);
+    const rim3D = rim2D.map(p => new THREE.Vector3(p.x, p.y, 0));
+    const rimCurve = new THREE.CatmullRomCurve3(rim3D, true);
+
+    const rimCoreMat = new THREE.MeshBasicMaterial({ color: 0xbefeff });
+    const rimCoreMesh = new THREE.Mesh(new THREE.TubeGeometry(rimCurve, 72, 0.022, 10, true), rimCoreMat);
+    paddleVisual.add(rimCoreMesh);
+
+    const rimHaloMat = new THREE.MeshBasicMaterial({
+      color: 0x00d8ff,
+      transparent: true,
+      opacity: 0.34,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const rimHaloMesh = new THREE.Mesh(new THREE.TubeGeometry(rimCurve, 72, 0.052, 10, true), rimHaloMat);
+    paddleVisual.add(rimHaloMesh);
+
+    // Inner recessed lip tube
+    const innerRim3D = rim2D.map(p => new THREE.Vector3(p.x * 0.89, p.y * 0.89, 0.012));
+    const innerRimCurve = new THREE.CatmullRomCurve3(innerRim3D, true);
+    const innerRimMesh = new THREE.Mesh(
+      new THREE.TubeGeometry(innerRimCurve, 64, 0.009, 8, true),
+      new THREE.MeshBasicMaterial({
+        color: 0x00f5ff,
+        transparent: true,
+        opacity: 0.72,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      })
+    );
+    paddleVisual.add(innerRimMesh);
+
+    // 4) Tapered Throat & Sculpted Glowing Handle
+    const throatGroup = new THREE.Group();
+    const throatMat = new THREE.MeshBasicMaterial({
+      color: 0x00d8ff,
+      transparent: true,
+      opacity: 0.38,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    // Tapered Y-throat struts connecting head to grip
+    [-1, 1].forEach(side => {
+      const strutCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(side * 0.16, -headHH + 0.02, 0),
+        new THREE.Vector3(side * 0.08, -headHH - 0.11, 0.01),
+        new THREE.Vector3(side * 0.042, -headHH - 0.21, 0.015)
+      ]);
+      throatGroup.add(new THREE.Mesh(new THREE.TubeGeometry(strutCurve, 14, 0.018, 8, false), rimCoreMat));
+      throatGroup.add(new THREE.Mesh(new THREE.TubeGeometry(strutCurve, 14, 0.036, 8, false), throatMat));
+    });
+
+    // Ergonomic sculpted grip cylinder + wireframe + glowing wrap bands
+    const gripGeo = new THREE.CylinderGeometry(0.042, 0.048, 0.28, 12);
+    const gripMesh = new THREE.Mesh(gripGeo, throatMat);
+    gripMesh.position.set(0, -headHH - 0.33, 0.015);
+    throatGroup.add(gripMesh);
+
+    const gripWire = new THREE.LineSegments(
+      new THREE.EdgesGeometry(gripGeo),
+      new THREE.LineBasicMaterial({ color: 0x70ffff, transparent: true, opacity: 0.65 })
+    );
+    gripWire.position.copy(gripMesh.position);
+    throatGroup.add(gripWire);
+
+    for (let i = 0; i < 4; i++) {
+      const band = new THREE.Mesh(
+        new THREE.TorusGeometry(0.047, 0.006, 6, 16),
+        rimCoreMat
+      );
+      band.rotation.x = Math.PI / 2;
+      band.position.set(0, -headHH - 0.23 - i * 0.068, 0.015);
+      throatGroup.add(band);
+    }
+    paddleVisual.add(throatGroup);
+
+    // 5) Animated Crackling Cyan Electric Arcs along the Paddle Rim
+    const electricArcs = [];
+    const arcPointCount = 12;
+    for (let i = 0; i < 4; i++) {
+      const positions = new Float32Array(arcPointCount * 3);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const mat = new THREE.LineBasicMaterial({
+        color: i % 2 === 0 ? 0xffffff : 0x55ffff,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending
+      });
+      const line = new THREE.Line(geo, mat);
+      paddleVisual.add(line);
+      electricArcs.push({ line, geo, phase: i * 0.25 });
+    }
+
+    function updateElectricArcs(time) {
+      for (let a = 0; a < electricArcs.length; a++) {
+        const arc = electricArcs[a];
+        const pos = arc.geo.attributes.position;
+        const startU = (time * (0.28 + a * 0.09) + arc.phase) % 1.0;
+        const span = 0.14;
+        for (let i = 0; i < arcPointCount; i++) {
+          const t = i / (arcPointCount - 1);
+          const u = (startU + t * span) % 1.0;
+          const pt = rimCurve.getPointAt(u);
+          const jitter = Math.sin(t * Math.PI) * 0.042;
+          pos.setXYZ(
+            i,
+            pt.x + (Math.random() - 0.5) * jitter,
+            pt.y + (Math.random() - 0.5) * jitter,
+            pt.z + (Math.random() - 0.5) * jitter * 0.9 + 0.014
+          );
+        }
+        pos.needsUpdate = true;
+      }
+    }
+
+    // 6) Radial Hit Energy Ripple across Racket Face
+    const paddleHitRippleMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const paddleHitRipple = new THREE.Mesh(new THREE.RingGeometry(0.08, 0.13, 32), paddleHitRippleMat);
+    paddleHitRipple.position.z = 0.02;
+    paddleVisual.add(paddleHitRipple);
+
+    // 7) Twin Plasma Laser Emitters on Racket Edges
+    const emitterGeo = new THREE.CylinderGeometry(0.022, 0.032, 0.16, 8);
+    emitterGeo.rotateX(Math.PI / 2);
+    const emitterMat = new THREE.MeshBasicMaterial({ color: 0xff2bd6 });
+    const leftEmitter = new THREE.Mesh(emitterGeo, emitterMat);
+    leftEmitter.position.set(-headHW - 0.02, 0.04, -0.05);
+    leftEmitter.visible = false;
+    const rightEmitter = new THREE.Mesh(emitterGeo, emitterMat);
+    rightEmitter.position.set(headHW + 0.02, 0.04, -0.05);
+    rightEmitter.visible = false;
+    paddleVisual.add(leftEmitter, rightEmitter);
+
+    paddleGroup.position.set(0, 1.48, TUNNEL.desktopPaddleZ);
+    scene.add(paddleGroup);
+
+    /* =========================================================================
+       7. GAME STATE, LEVELS & POOLED EXPLOSION VFX
+       ========================================================================= */
+    const LEVELS = [
+      { name: 'CLASSIC WALL',   speed: 7.4,  builder: buildLevelClassic },
+      { name: '3D PYRAMID',     speed: 8.1,  builder: buildLevelPyramid },
+      { name: 'TWIN PILLARS',   speed: 8.7,  builder: buildLevelTwinPillars },
+      { name: 'ARMORED GATE',   speed: 9.2,  builder: buildLevelArmoredGate },
+      { name: 'NEON MATRIX',    speed: 9.8,  builder: buildLevelNeonMatrix },
+      { name: 'CORE FORTRESS',  speed: 10.4, builder: buildLevelCoreFortress }
+    ];
+
+    const state = {
+      mode: 'MENU',
+      score: 0,
+      lives: 3,
+      levelIdx: 0,
+      combo: 0,
+      wideTimer: 0,
+      laserTimer: 0,
+      laserCooldown: 0,
+      paddleScaleX: 1.0,
+      paddleHitFlash: 0,
+      paddleRecoilZ: 0,
+      paddleRecoilVel: 0,
+      screenShake: 0,
+      bannerTimer: 0,
+      levelClearTimer: 0,
+      inVR: false,
+      activeController: null
+    };
+
+    const bricks = [];
+    const balls = [];
+    const powerUps = [];
+    const lasers = [];
+    const ripples = [];
+
+    // --- Shared Beveled 3D Brick Geometry (Rounded Extrude + Sharp Neon Edges) ---
+    const BRICK_W = 0.68, BRICK_H = 0.34, BRICK_D = 0.42;
+
+    function createBeveledBrickGeo() {
+      const w = BRICK_W - 0.048;
+      const h = BRICK_H - 0.048;
+      const r = 0.032;
+      const s = new THREE.Shape();
+      s.moveTo(-w / 2 + r, -h / 2);
+      s.lineTo(w / 2 - r, -h / 2);
+      s.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r);
+      s.lineTo(w / 2, h / 2 - r);
+      s.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2);
+      s.lineTo(-w / 2 + r, h / 2);
+      s.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r);
+      s.lineTo(-w / 2, -h / 2 + r);
+      s.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2);
+
+      const geo = new THREE.ExtrudeGeometry(s, {
+        depth: BRICK_D - 0.056,
+        bevelEnabled: true,
+        bevelThickness: 0.028,
+        bevelSize: 0.024,
+        bevelSegments: 2,
+        curveSegments: 4
+      });
+      geo.center();
+      return geo;
+    }
+
+    const sharedBrickGeo = createBeveledBrickGeo();
+    const sharedBrickEdgeGeo = new THREE.EdgesGeometry(sharedBrickGeo, 24);
+
+    // Procedural Glowing Crack Decal Texture for Damaged Armored Bricks
+    function createCrackTexture() {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 128;
+      const ctx = c.getContext('2d');
+      ctx.strokeStyle = '#ffdd55';
+      ctx.lineWidth = 4;
+      ctx.shadowColor = '#ff8800';
+      ctx.shadowBlur = 10;
+      const paths = [
+        [[128, 64], [96, 40], [54, 48], [26, 20]],
+        [[128, 64], [156, 38], [198, 52], [234, 24]],
+        [[128, 64], [110, 95], [70, 114]],
+        [[128, 64], [164, 88], [212, 108]]
+      ];
+      paths.forEach(pts => {
+        ctx.beginPath();
+        pts.forEach(([x, y], i) => i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y));
+        ctx.stroke();
+      });
+      const tex = new THREE.CanvasTexture(c);
+      tex.needsUpdate = true;
+      return tex;
+    }
+    const crackTex = createCrackTexture();
+    const crackPlaneGeo = new THREE.PlaneGeometry(BRICK_W * 0.9, BRICK_H * 0.9);
+
+    // --- Pooled Explosive VFX Arrays (Zero GC stutter at 60-90fps) ---
+    const shardPool = [];
+    const streakPool = [];
+    const emberPool = [];
+    const shockwavePool = [];
+
+    function initVFXPools() {
+      // 1) 180 Faceted Angular 3D Shards (tetrahedrons/prisms with glowing edges)
+      const shardGeoA = new THREE.TetrahedronGeometry(0.115, 0);
+      shardGeoA.scale(1.35, 0.72, 1.0);
+      const shardEdgeA = new THREE.EdgesGeometry(shardGeoA);
+
+      const shardGeoB = new THREE.OctahedronGeometry(0.095, 0);
+      shardGeoB.scale(1.4, 0.55, 0.85);
+      const shardEdgeB = new THREE.EdgesGeometry(shardGeoB);
+
+      for (let i = 0; i < 180; i++) {
+        const useA = i % 2 === 0;
+        const mat = new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          emissive: 0x00f5ff,
+          emissiveIntensity: 0.75,
+          roughness: 0.18,
+          metalness: 0.45,
+          transparent: true,
+          opacity: 1
+        });
+        const mesh = new THREE.Mesh(useA ? shardGeoA : shardGeoB, mat);
+        const edgeMat = new THREE.LineBasicMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.95
+        });
+        const wire = new THREE.LineSegments(useA ? shardEdgeA : shardEdgeB, edgeMat);
+        mesh.add(wire);
+        mesh.visible = false;
+        scene.add(mesh);
+
+        shardPool.push({
+          mesh,
+          mat,
+          edgeMat,
+          vel: new THREE.Vector3(),
+          rot: new THREE.Vector3(),
+          life: 0,
+          maxLife: 1,
+          baseScale: 1
+        });
+      }
+
+      // 2) 320 High-Velocity Elongated Glowing Spark Streaks
+      const streakGeo = new THREE.BoxGeometry(0.016, 0.016, 0.28);
+      for (let i = 0; i < 320; i++) {
+        const mat = new THREE.MeshBasicMaterial({
+          color: 0xffcc44,
+          transparent: true,
+          opacity: 1,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+        const mesh = new THREE.Mesh(streakGeo, mat);
+        mesh.visible = false;
+        scene.add(mesh);
+        streakPool.push({
+          mesh,
+          mat,
+          vel: new THREE.Vector3(),
+          life: 0,
+          maxLife: 0.4
+        });
+      }
+
+      // 3) 120 Drifting Fiery Comet Embers
+      for (let i = 0; i < 120; i++) {
+        const mat = new THREE.SpriteMaterial({
+          map: fireGlowTex,
+          color: 0xffaa33,
+          transparent: true,
+          opacity: 0,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+        const sprite = new THREE.Sprite(mat);
+        sprite.visible = false;
+        scene.add(sprite);
+        emberPool.push({
+          sprite,
+          mat,
+          vel: new THREE.Vector3(),
+          life: 0,
+          maxLife: 0.45,
+          size: 0.12
+        });
+      }
+
+      // 4) 16 Impact Shockwave Rings + Core Flare Sprites
+      const shockRingGeo = new THREE.RingGeometry(0.14, 0.24, 32);
+      for (let i = 0; i < 16; i++) {
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: 0xffdd88,
+          transparent: true,
+          opacity: 0,
+          side: THREE.DoubleSide,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+        const ring = new THREE.Mesh(shockRingGeo, ringMat);
+        ring.visible = false;
+        scene.add(ring);
+
+        const flareMat = new THREE.SpriteMaterial({
+          map: fireGlowTex,
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+        const flare = new THREE.Sprite(flareMat);
+        flare.visible = false;
+        scene.add(flare);
+
+        shockwavePool.push({ ring, ringMat, flare, flareMat, life: 0, maxLife: 0.34 });
+      }
+    }
+    initVFXPools();
+
+    /* =========================================================================
+       8. BRICK CREATION & 6 PROGRESSIVE 3D FORMATIONS
+       ========================================================================= */
+    function addBrick(x, y, z, colorHex, hp = 1, armored = false) {
+      const mat = new THREE.MeshStandardMaterial({
+        color: armored ? 0x1d2538 : colorHex,
+        emissive: armored ? 0x0e182c : colorHex,
+        emissiveIntensity: armored ? 0.38 : 0.56,
+        roughness: armored ? 0.22 : 0.26,
+        metalness: armored ? 0.88 : 0.22,
+        transparent: !armored,
+        opacity: armored ? 1.0 : 0.88
+      });
+
+      const mesh = new THREE.Mesh(sharedBrickGeo, mat);
+      mesh.position.set(x, y, z);
+
+      const edgeColor = armored ? (hp >= 3 ? 0xff4455 : 0x77eeff) : 0xffffff;
+      const edgeMat = new THREE.LineBasicMaterial({
+        color: edgeColor,
+        transparent: true,
+        opacity: 0.96
+      });
+      mesh.add(new THREE.LineSegments(sharedBrickEdgeGeo, edgeMat));
+
+      // Crack decal (hidden until armored brick takes damage)
+      let crackMesh = null;
+      if (armored || hp > 1) {
+        const crackMat = new THREE.MeshBasicMaterial({
+          map: crackTex,
+          transparent: true,
+          opacity: 0.95,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+        crackMesh = new THREE.Mesh(crackPlaneGeo, crackMat);
+        crackMesh.position.z = BRICK_D / 2 + 0.008;
+        crackMesh.visible = false;
+        mesh.add(crackMesh);
+      }
+
+      scene.add(mesh);
+      bricks.push({
+        mesh,
+        mat,
+        edgeMat,
+        crackMesh,
+        baseColor: colorHex,
+        armored,
+        hp,
+        maxHp: hp,
+        flashTimer: 0,
+        halfW: BRICK_W / 2,
+        halfH: BRICK_H / 2,
+        halfD: BRICK_D / 2
+      });
+    }
+
+    function clearBricks() {
+      for (const b of bricks) {
+        scene.remove(b.mesh);
+        b.mat.dispose();
+        b.edgeMat.dispose();
+        if (b.crackMesh) b.crackMesh.material.dispose();
+      }
+      bricks.length = 0;
+    }
+
+    function buildLevelClassic() {
+      const palette = [BRICK_COLORS.blue, BRICK_COLORS.magenta, BRICK_COLORS.orange, BRICK_COLORS.lime, BRICK_COLORS.gold];
+      const cols = 5, rows = 5;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const x = (c - (cols - 1) / 2) * 0.76;
+          const y = 0.86 + r * 0.42;
+          const z = -9.4 - (r % 2) * 0.35;
+          addBrick(x, y, z, palette[(c + r) % palette.length], 1, false);
+        }
+      }
+    }
+
+    function buildLevelPyramid() {
+      const palette = [BRICK_COLORS.blue, BRICK_COLORS.lime, BRICK_COLORS.orange, BRICK_COLORS.magenta, BRICK_COLORS.gold];
+      for (let layer = 0; layer < 4; layer++) {
+        const span = 4 - layer;
+        const z = -10.8 + layer * 0.85;
+        for (let ix = 0; ix < span; ix++) {
+          for (let iy = 0; iy < span; iy++) {
+            const x = (ix - (span - 1) / 2) * 0.76;
+            const y = 1.64 + (iy - (span - 1) / 2) * 0.44;
+            const isApex = layer === 3;
+            addBrick(x, y, z, isApex ? BRICK_COLORS.gold : palette[layer], isApex ? 2 : 1, isApex);
+          }
+        }
+      }
+    }
+
+    function buildLevelTwinPillars() {
+      const cols = [-1.42, -0.68, 0.68, 1.42];
+      const palette = [BRICK_COLORS.blue, BRICK_COLORS.magenta, BRICK_COLORS.lime, BRICK_COLORS.orange];
+      for (let r = 0; r < 5; r++) {
+        const y = 0.78 + r * 0.44;
+        cols.forEach((x, idx) => {
+          addBrick(x, y, -9.4 - (idx % 2) * 0.62, palette[r % palette.length], 1, false);
+        });
+      }
+      for (let r = 2; r <= 3; r++) {
+        addBrick(0, 0.78 + r * 0.44, -8.7, BRICK_COLORS.gold, 2, true);
+      }
+      addBrick(0, 0.78 + 4 * 0.44, -10.3, BRICK_COLORS.gold, 1, false);
+    }
+
+    function buildLevelArmoredGate() {
+      for (let c = -2; c <= 2; c++) {
+        for (let r = 0; r < 3; r++) {
+          if (c === 0 && r === 1) continue;
+          addBrick(c * 0.76, 1.1 + r * 0.46, -8.5, BRICK_COLORS.blue, 2, true);
+        }
+      }
+      const colors = [BRICK_COLORS.magenta, BRICK_COLORS.gold, BRICK_COLORS.orange, BRICK_COLORS.lime];
+      for (let c = -2; c <= 2; c++) {
+        for (let r = 0; r < 4; r++) {
+          addBrick(c * 0.76, 0.94 + r * 0.44, -10.5, colors[(Math.abs(c) + r) % colors.length], 1, false);
+        }
+      }
+    }
+
+    function buildLevelNeonMatrix() {
+      const colors = [BRICK_COLORS.blue, BRICK_COLORS.magenta, BRICK_COLORS.lime, BRICK_COLORS.orange, BRICK_COLORS.gold];
+      for (let iz = 0; iz < 3; iz++) {
+        for (let ix = -2; ix <= 2; ix++) {
+          for (let iy = 0; iy < 4; iy++) {
+            if ((ix + iy + iz + 10) % 2 !== 0) continue;
+            const armored = iz === 0 && (iy === 1 || iy === 2);
+            addBrick(ix * 0.76, 0.88 + iy * 0.46, -8.5 - iz * 1.05, colors[(ix + iy + 5) % colors.length], armored ? 2 : 1, armored);
+          }
+        }
+      }
+    }
+
+    function buildLevelCoreFortress() {
+      const frontCoords = [[-1.45, 1.0], [1.45, 1.0], [-1.45, 2.2], [1.45, 2.2], [0, 2.38], [0, 0.82]];
+      frontCoords.forEach(([x, y]) => addBrick(x, y, -8.2, BRICK_COLORS.orange, 3, true));
+
+      for (let ix = -2; ix <= 2; ix++) {
+        for (let iy = 0; iy < 4; iy++) {
+          if (Math.abs(ix) <= 1 && (iy === 1 || iy === 2)) continue;
+          addBrick(ix * 0.76, 0.9 + iy * 0.46, -9.7, (iy % 2 === 0) ? BRICK_COLORS.magenta : BRICK_COLORS.blue, 1, false);
+        }
+      }
+      for (let ix = -1; ix <= 1; ix++) {
+        for (let iy = 1; iy <= 2; iy++) {
+          addBrick(ix * 0.74, 0.9 + iy * 0.46, -11.1, BRICK_COLORS.gold, 2, false);
+        }
+      }
+    }
+
+    /* =========================================================================
+       9. FIERY PLASMA ENERGY BALL, COMET TRAIL, POWER-UPS & LASERS
+       ========================================================================= */
+    const ballCoreGeo = new THREE.SphereGeometry(BALL_RADIUS * 0.86, 18, 18);
+    const ballShellGeo = new THREE.SphereGeometry(BALL_RADIUS * 1.18, 16, 16);
+    const ballAuraRingGeo = new THREE.TorusGeometry(BALL_RADIUS * 1.55, 0.018, 8, 28);
+
+    function createBall(docked = false) {
+      const group = new THREE.Group();
+
+      // White-hot inner core
+      const core = new THREE.Mesh(ballCoreGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      group.add(core);
+
+      // Fiery golden-orange outer shell
+      const shell = new THREE.Mesh(ballShellGeo, new THREE.MeshBasicMaterial({
+        color: 0xffaa22,
+        transparent: true,
+        opacity: 0.72,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      }));
+      group.add(shell);
+
+      // Rotating plasma aura ring
+      const auraRing = new THREE.Mesh(ballAuraRingGeo, new THREE.MeshBasicMaterial({
+        color: 0xffdd77,
+        transparent: true,
+        opacity: 0.85,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      }));
+      group.add(auraRing);
+
+      // Soft additive fiery glow sprite
+      const glowSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: fireGlowTex,
+        color: 0xffbb55,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      }));
+      glowSprite.scale.set(BALL_RADIUS * 6.8, BALL_RADIUS * 6.8, 1);
+      group.add(glowSprite);
+
+      scene.add(group);
+
+      // Tapering fiery comet tail made of 16 overlapping plasma glow sprites
+      const trailSprites = [];
+      for (let i = 0; i < 16; i++) {
+        const t = i / 16;
+        const sMat = new THREE.SpriteMaterial({
+          map: fireGlowTex,
+          color: new THREE.Color().setHSL(0.085 - t * 0.055, 1.0, 0.62 - t * 0.16),
+          transparent: true,
+          opacity: Math.pow(1 - t, 1.35) * 0.82,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+        const sp = new THREE.Sprite(sMat);
+        const sz = BALL_RADIUS * (4.6 * (1 - t * 0.82));
+        sp.scale.set(sz, sz, 1);
+        sp.visible = false;
+        scene.add(sp);
+        trailSprites.push(sp);
+      }
+
+      const ball = {
+        mesh: group,
+        auraRing,
+        vel: new THREE.Vector3(0, 0, 0),
+        docked,
+        speed: LEVELS[state.levelIdx].speed,
+        trailSprites,
+        history: [],
+        emberAccum: 0
+      };
+
+      if (docked) positionDockedBall(ball);
+      balls.push(ball);
+      return ball;
+    }
+
+    function positionDockedBall(ball) {
+      ball.mesh.position.set(
+        paddleGroup.position.x,
+        paddleGroup.position.y,
+        paddleGroup.position.z - 0.27
+      );
+      ball.vel.set(0, 0, 0);
+      ball.history.length = 0;
+      ball.trailSprites.forEach(s => s.visible = false);
+    }
+
+    function removeBall(index) {
+      const b = balls[index];
+      scene.remove(b.mesh);
+      b.trailSprites.forEach(s => {
+        scene.remove(s);
+        s.material.dispose();
+      });
+      balls.splice(index, 1);
+    }
+
+    function clearAllBalls() {
+      while (balls.length > 0) removeBall(0);
+    }
+
+    // Power-Up Capsule Spawner (Glowing Orange-Gold Energy Capsule + Icon)
+    const capsuleBodyGeo = new THREE.CapsuleGeometry(0.11, 0.19, 8, 16);
+    const capsuleCapGeo = new THREE.TorusGeometry(0.112, 0.016, 8, 20);
+    capsuleCapGeo.rotateX(Math.PI / 2);
+
+    function createCapsuleIconTexture(iconChar, hexColor) {
+      const c = document.createElement('canvas');
+      c.width = 128;
+      c.height = 128;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 74px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = hexColor;
+      ctx.shadowBlur = 16;
+      ctx.fillText(iconChar, 64, 66);
+      const tex = new THREE.CanvasTexture(c);
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    function spawnPowerUp(pos) {
+      const type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+      const group = new THREE.Group();
+
+      const bodyMat = new THREE.MeshStandardMaterial({
+        color: type.color,
+        emissive: type.color,
+        emissiveIntensity: 0.85,
+        roughness: 0.18,
+        metalness: 0.35,
+        transparent: true,
+        opacity: 0.88
+      });
+      group.add(new THREE.Mesh(capsuleBodyGeo, bodyMat));
+
+      const capMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const topCap = new THREE.Mesh(capsuleCapGeo, capMat);
+      topCap.position.y = 0.095;
+      const botCap = new THREE.Mesh(capsuleCapGeo, capMat);
+      botCap.position.y = -0.095;
+      group.add(topCap, botCap);
+
+      // Soft outer glow sprite
+      const glowMat = new THREE.SpriteMaterial({
+        map: fireGlowTex,
+        color: type.color,
+        transparent: true,
+        opacity: 0.72,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const glow = new THREE.Sprite(glowMat);
+      glow.scale.set(0.68, 0.68, 1);
+      group.add(glow);
+
+      // Crisp floating icon sprite inside capsule
+      const iconTex = createCapsuleIconTexture(type.icon, '#' + type.color.toString(16).padStart(6, '0'));
+      const iconMat = new THREE.SpriteMaterial({ map: iconTex, transparent: true, depthTest: false });
+      const iconSprite = new THREE.Sprite(iconMat);
+      iconSprite.scale.set(0.24, 0.24, 1);
+      group.add(iconSprite);
+
+      group.position.copy(pos);
+      scene.add(group);
+
+      powerUps.push({
+        mesh: group,
+        type,
+        disposables: [bodyMat, capMat, glowMat, iconMat, iconTex],
+        speedZ: 3.15
+      });
+    }
+
+    function clearPowerUps() {
+      for (const p of powerUps) {
+        scene.remove(p.mesh);
+        p.disposables.forEach(d => d.dispose());
+      }
+      powerUps.length = 0;
+    }
+
+    // Twin Plasma Lasers
+    const laserGeo = new THREE.CylinderGeometry(0.022, 0.022, 0.58, 8);
+    laserGeo.rotateX(Math.PI / 2);
+    const laserMat = new THREE.MeshBasicMaterial({
+      color: 0x00ffff,
+      blending: THREE.AdditiveBlending
+    });
+
+    function fireLasers() {
+      if (state.laserTimer <= 0 || state.laserCooldown > 0) return;
+      state.laserCooldown = 0.22;
+      const halfSpan = (BASE_PADDLE.width * state.paddleScaleX) / 2;
+      [-halfSpan, halfSpan].forEach(offsetX => {
+        const bolt = new THREE.Mesh(laserGeo, laserMat);
+        const worldOffset = new THREE.Vector3(offsetX, 0.04, -0.25).applyQuaternion(paddleGroup.quaternion);
+        bolt.position.copy(paddleGroup.position).add(worldOffset);
+        scene.add(bolt);
+        lasers.push({ mesh: bolt, speedZ: -21.0 });
+      });
+      sound.playLaser();
+      triggerHaptic(0.25, 35);
+    }
+
+    function clearLasers() {
+      for (const l of lasers) scene.remove(l.mesh);
+      lasers.length = 0;
+    }
+
+    /* =========================================================================
+       10. EXPLOSIVE BRICK SHATTERING & SPECIAL EFFECTS SPAWNERS
+       ========================================================================= */
+    let shardCursor = 0;
+    let streakCursor = 0;
+    let emberCursor = 0;
+    let shockCursor = 0;
+
+    function spawnBrickExplosion(pos, colorHex) {
+      // 1) 20 Angular 3D Geometric Shards exploding outward with spin & gravity
+      const shardCount = 20;
+      for (let i = 0; i < shardCount; i++) {
+        const s = shardPool[shardCursor];
+        shardCursor = (shardCursor + 1) % shardPool.length;
+        s.mesh.visible = true;
+        s.mesh.position.set(
+          pos.x + (Math.random() - 0.5) * 0.48,
+          pos.y + (Math.random() - 0.5) * 0.24,
+          pos.z + (Math.random() - 0.5) * 0.26
+        );
+        s.baseScale = 0.55 + Math.random() * 0.95;
+        s.mesh.scale.setScalar(s.baseScale);
+        s.mat.color.setHex(colorHex);
+        s.mat.emissive.setHex(colorHex);
+        s.mat.opacity = 1;
+        s.edgeMat.color.setHex(i % 3 === 0 ? 0xffffff : colorHex);
+        s.edgeMat.opacity = 1;
+
+        const theta = Math.random() * Math.PI * 2;
+        const speed = 2.4 + Math.random() * 4.8;
+        s.vel.set(
+          Math.cos(theta) * speed,
+          Math.sin(theta) * speed * 0.85 + 1.4,
+          (Math.random() - 0.35) * 5.2
+        );
+        s.rot.set(
+          (Math.random() - 0.5) * 14,
+          (Math.random() - 0.5) * 14,
+          (Math.random() - 0.5) * 14
+        );
+        s.life = 0.85 + Math.random() * 0.55;
+        s.maxLife = s.life;
+      }
+
+      // 2) 34 High-Velocity Elongated Spark Streaks (gold, orange, white & brick-colored)
+      const sparkPalette = [0xffffff, 0xffdd55, 0xff7700, colorHex];
+      spawnSparkStreaks(pos, sparkPalette, 34, 9.5);
+
+      // 3) Expanding Additive Shockwave Ring + Core Flash Flare
+      const sw = shockwavePool[shockCursor];
+      shockCursor = (shockCursor + 1) % shockwavePool.length;
+      sw.ring.visible = true;
+      sw.ring.position.copy(pos);
+      sw.ring.position.z += 0.12;
+      sw.ring.scale.setScalar(0.5);
+      sw.ringMat.color.setHex(0xffdd77);
+      sw.ringMat.opacity = 1.0;
+
+      sw.flare.visible = true;
+      sw.flare.position.copy(pos);
+      sw.flare.scale.set(1.9, 1.9, 1);
+      sw.flareMat.color.setHex(0xffee99);
+      sw.flareMat.opacity = 1.0;
+      sw.life = 0.34;
+      sw.maxLife = 0.34;
+
+      // 4) Brief High-Intensity Dynamic Impact Flash Light
+      impactFlashLight.position.copy(pos);
+      impactFlashLight.position.z += 0.35;
+      impactFlashLight.color.setHex(0xffbb55);
+      impactFlashLight.intensity = 10.5;
+      impactFlashTimer = 0.22;
+    }
+
+    function spawnSparkStreaks(pos, colorPalette, count = 18, maxSpeed = 7.5) {
+      for (let i = 0; i < count; i++) {
+        const st = streakPool[streakCursor];
+        streakCursor = (streakCursor + 1) % streakPool.length;
+        st.mesh.visible = true;
+        st.mesh.position.copy(pos);
+        const col = Array.isArray(colorPalette)
+          ? colorPalette[i % colorPalette.length]
+          : colorPalette;
+        st.mat.color.setHex(col);
+        st.mat.opacity = 1;
+
+        const u = Math.random() * 2 - 1;
+        const phi = Math.random() * Math.PI * 2;
+        const r = Math.sqrt(1 - u * u);
+        const spd = 2.8 + Math.random() * maxSpeed;
+        st.vel.set(r * Math.cos(phi) * spd, r * Math.sin(phi) * spd, u * spd);
+        st.mesh.lookAt(pos.x + st.vel.x, pos.y + st.vel.y, pos.z + st.vel.z);
+        st.life = 0.24 + Math.random() * 0.26;
+        st.maxLife = st.life;
+      }
+    }
+
+    function spawnCometEmber(pos, ballVel) {
+      const e = emberPool[emberCursor];
+      emberCursor = (emberCursor + 1) % emberPool.length;
+      e.sprite.visible = true;
+      e.sprite.position.set(
+        pos.x + (Math.random() - 0.5) * 0.16,
+        pos.y + (Math.random() - 0.5) * 0.16,
+        pos.z + (Math.random() - 0.5) * 0.16
+      );
+      e.size = 0.08 + Math.random() * 0.1;
+      e.sprite.scale.set(e.size, e.size, 1);
+      e.mat.color.setHex(Math.random() > 0.4 ? 0xffaa22 : 0xffee88);
+      e.mat.opacity = 0.9;
+      e.vel.set(
+        -ballVel.x * 0.12 + (Math.random() - 0.5) * 1.1,
+        -ballVel.y * 0.12 + (Math.random() - 0.5) * 1.1,
+        -ballVel.z * 0.12 + (Math.random() - 0.5) * 1.1
+      );
+      e.life = 0.28 + Math.random() * 0.24;
+      e.maxLife = e.life;
+    }
+
+    const wallRippleGeo = new THREE.RingGeometry(0.14, 0.21, 24);
+    function spawnWallRipple(pos, normal, colorHex = 0x00f5ff) {
+      if (ripples.length > 16) {
+        const old = ripples.shift();
+        scene.remove(old.mesh);
+        old.mesh.material.dispose();
+      }
+      const mat = new THREE.MeshBasicMaterial({
+        color: colorHex,
+        transparent: true,
+        opacity: 0.92,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const mesh = new THREE.Mesh(wallRippleGeo, mat);
+      mesh.position.copy(pos).addScaledVector(normal, 0.025);
+      mesh.lookAt(pos.clone().add(normal));
+      scene.add(mesh);
+      ripples.push({ mesh, life: 0.36, maxLife: 0.36 });
+    }
+
+    /* =========================================================================
+       11. DIEGETIC WINGED HUD REFRESH & BANNERS
+       ========================================================================= */
+    const bannerEl = document.getElementById('banner');
+    const bannerTitleEl = document.getElementById('banner-title');
+    const bannerSubEl = document.getElementById('banner-sub');
+    const launchHintEl = document.getElementById('launch-hint');
+
+    function showBanner(title, subtitle, duration = 2.0, color = '#00f5ff') {
+      state.bannerTimer = duration;
+
+      if (!state.inVR) {
+        bannerTitleEl.textContent = title;
+        bannerSubEl.textContent = subtitle;
+        bannerTitleEl.style.textShadow = `0 0 16px ${color}`;
+        bannerEl.classList.add('show');
+      }
+
+      vrBannerHUD.visible = true;
+      vrBannerHUD.update((ctx, w, h) => {
+        ctx.fillStyle = 'rgba(4, 14, 34, 0.78)';
+        ctx.beginPath();
+        ctx.roundRect(10, 10, w - 20, h - 20, 18);
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 4;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 14;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 60px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 16;
+        ctx.fillText(title, w / 2, 104);
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#c4f5ff';
+        ctx.font = '700 30px sans-serif';
+        ctx.fillText(subtitle, w / 2, 164);
+      });
+    }
+
+    let hudDirty = true;
+    function refreshDiegeticHUD() {
+      hudDirty = false;
+
+      // Bottom-Left Wing: SCORE & LEVEL
+      leftHUD.update((ctx, w, h) => {
+        drawWingFrame(ctx, w, h, '#00f5ff', true);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#7ceeff';
+        ctx.font = '700 22px sans-serif';
+        ctx.fillText(`SECTOR ${state.levelIdx + 1}/${LEVELS.length}  •  ${LEVELS[state.levelIdx].name}`, 32, 50);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 54px sans-serif';
+        ctx.shadowColor = '#00f5ff';
+        ctx.shadowBlur = 12;
+        ctx.fillText(`SCORE: ${state.score.toLocaleString()}`, 32, 118);
+        ctx.shadowBlur = 0;
+      });
+
+      // Bottom-Right Wing: LIVES, COMBO & ACTIVE POWER-UPS
+      rightHUD.update((ctx, w, h) => {
+        drawWingFrame(ctx, w, h, '#00f5ff', false);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 44px sans-serif';
+        ctx.shadowColor = '#00f5ff';
+        ctx.shadowBlur = 10;
+        ctx.fillText(`LIVES: ${state.lives}`, 56, 72);
+        ctx.shadowBlur = 0;
+
+        // Life orbs
+        for (let i = 0; i < MAX_LIVES; i++) {
+          ctx.beginPath();
+          ctx.arc(286 + i * 42, 56, 12, 0, Math.PI * 2);
+          if (i < state.lives) {
+            ctx.fillStyle = '#39ff14';
+            ctx.shadowColor = '#39ff14';
+            ctx.shadowBlur = 10;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+          } else {
+            ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+          }
+        }
+
+        // Bottom line: Power-up timer or Combo
+        if (state.wideTimer > 0 || state.laserTimer > 0) {
+          const label = state.laserTimer > 0 ? `LASER ${Math.ceil(state.laserTimer)}s` : `WIDE ${Math.ceil(state.wideTimer)}s`;
+          const col = state.laserTimer > 0 ? '#ff2bd6' : '#00f5ff';
+          ctx.fillStyle = col;
+          ctx.font = '800 26px sans-serif';
+          ctx.fillText(label, 56, 126);
+        } else if (state.combo > 1) {
+          ctx.fillStyle = '#ffcc33';
+          ctx.font = '900 28px sans-serif';
+          ctx.fillText(`COMBO x${state.combo}!`, 56, 126);
+        } else {
+          ctx.fillStyle = 'rgba(165, 232, 255, 0.72)';
+          ctx.font = '700 22px sans-serif';
+          ctx.fillText(balls.length > 1 ? `MULTI-BALL (${balls.length})` : 'ENERGY RACKET READY', 56, 126);
+        }
+      });
+    }
+
+    /* =========================================================================
+       12. GAME FLOW (START, LEVELS, LAUNCH, END STATES)
+       ========================================================================= */
+    const startOverlay = document.getElementById('start-overlay');
+    const endOverlay = document.getElementById('end-overlay');
+    const btnMenu = document.getElementById('btn-menu');
+
+    function startNewGame() {
+      sound.unlock();
+      state.score = 0;
+      state.lives = 3;
+      state.levelIdx = 0;
+      state.combo = 0;
+      state.wideTimer = 0;
+      state.laserTimer = 0;
+      state.paddleScaleX = 1.0;
+
+      startOverlay.classList.add('hidden');
+      endOverlay.classList.add('hidden');
+      if (!state.inVR) btnMenu.style.display = 'inline-block';
+
+      loadLevel(0);
+    }
+
+    function loadLevel(idx) {
+      state.levelIdx = idx;
+      state.mode = 'PLAYING';
+      state.combo = 0;
+      clearBricks();
+      clearAllBalls();
+      clearPowerUps();
+      clearLasers();
+
+      LEVELS[idx].builder();
+      createBall(true);
+      hudDirty = true;
+
+      showBanner(`LEVEL ${idx + 1}`, LEVELS[idx].name, 2.2, '#00f5ff');
+      if (!state.inVR) launchHintEl.classList.add('show');
+    }
+
+    function launchDockedBalls() {
+      let launched = false;
+      for (const b of balls) {
+        if (b.docked) {
+          b.docked = false;
+          const speed = LEVELS[state.levelIdx].speed;
+          const dir = new THREE.Vector3(
+            (Math.random() - 0.5) * 0.26,
+            0.08 + (Math.random() - 0.5) * 0.16,
+            -1
+          ).applyQuaternion(paddleGroup.quaternion).normalize();
+          if (dir.z > -0.75) { dir.z = -0.88; dir.normalize(); }
+          b.vel.copy(dir).multiplyScalar(speed);
+          b.speed = speed;
+          launched = true;
+        }
+      }
+      if (launched) {
+        sound.playPaddleBounce();
+        state.paddleHitFlash = 1.0;
+        state.paddleRecoilVel = 1.2;
+        triggerHaptic(0.45, 50);
+        launchHintEl.classList.remove('show');
+      }
+    }
+
+    function handlePrimaryAction() {
+      sound.unlock();
+      if (state.mode === 'GAME_OVER' || state.mode === 'VICTORY') {
+        if (state.inVR) startNewGame();
+        return;
+      }
+      if (state.mode !== 'PLAYING') return;
+
+      if (balls.some(b => b.docked)) {
+        launchDockedBalls();
+      } else if (state.laserTimer > 0) {
+        fireLasers();
+      }
+    }
+
+    function triggerEndState(victory) {
+      state.mode = victory ? 'VICTORY' : 'GAME_OVER';
+      launchHintEl.classList.remove('show');
+      clearPowerUps();
+      clearLasers();
+
+      if (victory) {
+        sound.playLevelClear();
+        showBanner('VICTORY!', state.inVR ? 'PULL TRIGGER TO PLAY AGAIN' : 'ALL 6 SECTORS CLEARED', 8.0, '#ffd700');
+      } else {
+        sound.playLifeLost();
+        showBanner('GAME OVER', state.inVR ? 'PULL TRIGGER TO RETRY' : `FINAL SCORE: ${state.score}`, 8.0, '#ff2bd6');
+      }
+
+      if (!state.inVR) {
+        document.getElementById('end-title').textContent = victory ? 'VICTORY!' : 'GAME OVER';
+        document.getElementById('end-subtitle').textContent = victory
+          ? 'All 6 Holographic Sectors Cleared!'
+          : 'Tunnel Defense Breached';
+        document.getElementById('final-score').textContent = state.score.toLocaleString();
+        document.getElementById('final-level').textContent = `${state.levelIdx + 1} / ${LEVELS.length}`;
+        endOverlay.classList.remove('hidden');
+      }
+    }
+
+    /* =========================================================================
+       13. DESKTOP MOUSE/TOUCH & WEBXR VR CONTROLLERS + HAPTICS
+       ========================================================================= */
+    const pointerTarget = new THREE.Vector2(0, 1.48);
+    const prevPaddlePos = new THREE.Vector3(0, 1.48, TUNNEL.desktopPaddleZ);
+
+    function updatePointerFromClient(clientX, clientY) {
+      const nx = (clientX / window.innerWidth) * 2 - 1;
+      const ny = -(clientY / window.innerHeight) * 2 + 1;
+      pointerTarget.x = nx * (TUNNEL.halfW - 0.16);
+      pointerTarget.y = TUNNEL.halfH + ny * (TUNNEL.halfH - 0.14);
+    }
+
+    window.addEventListener('mousemove', (e) => {
+      if (!state.inVR) updatePointerFromClient(e.clientX, e.clientY);
+    });
+
+    window.addEventListener('mousedown', (e) => {
+      if (state.inVR || e.target.closest('button') || e.target.closest('.panel')) return;
+      if (state.mode === 'PLAYING') handlePrimaryAction();
+    });
+
+    window.addEventListener('touchstart', (e) => {
+      if (state.inVR || e.target.closest('button') || e.target.closest('.panel')) return;
+      if (e.touches.length > 0) {
+        updatePointerFromClient(e.touches[0].clientX, e.touches[0].clientY);
+        if (state.mode === 'PLAYING') handlePrimaryAction();
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      if (state.inVR || e.target.closest('button') || e.target.closest('.panel')) return;
+      if (e.touches.length > 0) updatePointerFromClient(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (state.mode === 'PLAYING') handlePrimaryAction();
+      }
+    });
+
+    // WebXR Controllers
+    const controllers = [];
+    for (let i = 0; i < 2; i++) {
+      const ctrl = renderer.xr.getController(i);
+      ctrl.addEventListener('connected', (event) => {
+        ctrl.userData.inputSource = event.data;
+        if (!state.activeController || event.data.handedness === 'right') {
+          state.activeController = ctrl;
+        }
+      });
+      ctrl.addEventListener('disconnected', () => {
+        ctrl.userData.inputSource = null;
+        if (state.activeController === ctrl) {
+          state.activeController = controllers.find(c => c.userData.inputSource) || null;
+        }
+      });
+      ctrl.addEventListener('selectstart', () => {
+        state.activeController = ctrl;
+        handlePrimaryAction();
+      });
+      cameraRig.add(ctrl);
+      controllers.push(ctrl);
+    }
+
+    function triggerHaptic(intensity = 0.55, durationMs = 55) {
+      if (!state.inVR || !state.activeController) return;
+      const src = state.activeController.userData.inputSource;
+      if (src && src.gamepad && src.gamepad.hapticActuators && src.gamepad.hapticActuators.length > 0) {
+        try { src.gamepad.hapticActuators[0].pulse(intensity, durationMs); } catch (_) {}
+      }
+    }
+
+    // WebXR Session Detection & Entry
+    const btnEnterVR = document.getElementById('btn-enter-vr');
+    const btnVRTop = document.getElementById('btn-vr-top');
+    const btnEndVR = document.getElementById('btn-end-vr');
+    const vrStatusEl = document.getElementById('vr-status');
+    let xrSupported = false;
+
+    async function checkVRSupport() {
+      if (!navigator.xr) {
+        vrStatusEl.textContent = 'WebXR not detected in this browser — Desktop & Touch mode ready!';
+        return;
+      }
+      try {
+        xrSupported = await navigator.xr.isSessionSupported('immersive-vr');
+        if (xrSupported) {
+          btnEnterVR.disabled = false;
+          btnVRTop.style.display = 'inline-block';
+          btnEndVR.style.display = 'inline-block';
+          vrStatusEl.textContent = 'WebXR VR Ready (Meta Quest / PCVR supported)';
+          vrStatusEl.style.color = '#6fffa8';
+        } else {
+          vrStatusEl.textContent = 'No VR headset detected — Play immediately in Desktop mode!';
+        }
+      } catch (_) {
+        vrStatusEl.textContent = 'Desktop & Touch mode ready!';
+      }
+    }
+    checkVRSupport();
+
+    async function enterVRSession() {
+      if (!xrSupported) return;
+      sound.unlock();
+      try {
+        const session = await navigator.xr.requestSession('immersive-vr', {
+          optionalFeatures: ['local-floor', 'bounded-floor']
+        });
+        await renderer.xr.setSession(session);
+        state.inVR = true;
+        startOverlay.classList.add('hidden');
+        endOverlay.classList.add('hidden');
+        document.getElementById('top-bar').style.display = 'none';
+        launchHintEl.classList.remove('show');
+        bannerEl.classList.remove('show');
+        cameraRig.position.set(0, 0, 0.25);
+        if (state.mode === 'MENU') startNewGame();
+
+        session.addEventListener('end', () => {
+          state.inVR = false;
+          cameraRig.position.set(0, 0, 0);
+          camera.position.copy(desktopCamPos);
+          camera.rotation.set(0, 0, 0);
+          document.getElementById('top-bar').style.display = 'flex';
+          if (state.mode === 'GAME_OVER' || state.mode === 'VICTORY') {
+            endOverlay.classList.remove('hidden');
+          }
+        });
+      } catch (_) {
+        vrStatusEl.textContent = 'Could not start VR session. Ensure headset is active.';
+      }
+    }
+
+    document.getElementById('btn-play-desktop').addEventListener('click', startNewGame);
+    document.getElementById('btn-restart').addEventListener('click', startNewGame);
+    btnEnterVR.addEventListener('click', enterVRSession);
+    btnVRTop.addEventListener('click', enterVRSession);
+    btnEndVR.addEventListener('click', enterVRSession);
+
+    btnMenu.addEventListener('click', () => {
+      state.mode = 'MENU';
+      startOverlay.classList.remove('hidden');
+      endOverlay.classList.add('hidden');
+      launchHintEl.classList.remove('show');
+    });
+
+    const btnMute = document.getElementById('btn-mute');
+    btnMute.addEventListener('click', () => {
+      sound.unlock();
+      sound.setMuted(!sound.muted);
+      btnMute.textContent = sound.muted ? '🔇 MUTED' : '🔊 SOUND ON';
+    });
+
+    /* =========================================================================
+       14. COLLISION, BRICK DAMAGE & POWER-UP LOGIC
+       ========================================================================= */
+    function damageBrick(brick, index, hitPos) {
+      brick.hp -= 1;
+      if (brick.hp <= 0) {
+        state.combo += 1;
+        const pts = (brick.armored ? 250 : 100) * Math.min(state.combo, 8);
+        state.score += pts;
+        hudDirty = true;
+
+        spawnBrickExplosion(brick.mesh.position, brick.baseColor);
+        sound.playBrickShatter(state.combo);
+        if (!state.inVR) state.screenShake = Math.min(0.068, state.screenShake + 0.032);
+
+        if (Math.random() < 0.24 && powerUps.length < 3) {
+          spawnPowerUp(brick.mesh.position);
+        }
+
+        scene.remove(brick.mesh);
+        brick.mat.dispose();
+        brick.edgeMat.dispose();
+        if (brick.crackMesh) brick.crackMesh.material.dispose();
+        bricks.splice(index, 1);
+
+        if (bricks.length === 0) {
+          state.mode = 'LEVEL_CLEAR';
+          state.levelClearTimer = 2.6;
+          sound.playLevelClear();
+          showBanner('SECTOR CLEARED!', `BONUS +${(state.levelIdx + 1) * 500}`, 2.4, '#39ff14');
+          state.score += (state.levelIdx + 1) * 500;
+          hudDirty = true;
+        }
+      } else {
+        brick.flashTimer = 0.16;
+        brick.mat.emissive.setHex(0xffffff);
+        brick.mat.emissiveIntensity = 1.25;
+        brick.edgeMat.color.setHex(brick.hp === 1 ? 0xffcc00 : 0x00f5ff);
+        if (brick.crackMesh) brick.crackMesh.visible = true;
+        spawnSparkStreaks(hitPos, [0xffffff, 0xffdd66, 0x00f5ff], 16, 7.2);
+        sound.playArmorClang();
+      }
+    }
+
+    function applyPowerUp(type) {
+      sound.playPowerUp();
+      triggerHaptic(0.65, 80);
+      showBanner(type.title, 'POWER-UP ACTIVATED', 1.6, '#' + type.color.toString(16).padStart(6, '0'));
+
+      if (type.id === 'WIDE') {
+        state.wideTimer = 14.0;
+      } else if (type.id === 'LASER') {
+        state.laserTimer = 12.0;
+      } else if (type.id === 'LIFE') {
+        state.lives = Math.min(MAX_LIVES, state.lives + 1);
+      } else if (type.id === 'MULTI') {
+        const ref = balls[0];
+        if (ref && balls.length < 6) {
+          const basePos = ref.mesh.position.clone();
+          const speed = LEVELS[state.levelIdx].speed;
+          [-0.36, 0.36].forEach(angle => {
+            const nb = createBall(false);
+            nb.mesh.position.copy(basePos);
+            const dir = ref.docked
+              ? new THREE.Vector3(angle, 0.12, -1).normalize()
+              : ref.vel.clone().normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+            if (Math.abs(dir.z) < 0.5) { dir.z = -0.8; dir.normalize(); }
+            nb.vel.copy(dir).multiplyScalar(speed);
+          });
+        }
+      }
+      hudDirty = true;
+    }
+
+    function stepPhysics(dt) {
+      const paddleHalfW = (BASE_PADDLE.width * state.paddleScaleX) / 2;
+      const paddleHalfH = BASE_PADDLE.height / 2;
+      const paddlePos = paddleGroup.position;
+
+      const subSteps = 2;
+      const subDt = dt / subSteps;
+
+      for (let s = 0; s < subSteps; s++) {
+        for (let bi = balls.length - 1; bi >= 0; bi--) {
+          const ball = balls[bi];
+          if (ball.docked) {
+            positionDockedBall(ball);
+            continue;
+          }
+
+          const prevZ = ball.mesh.position.z;
+          ball.mesh.position.addScaledVector(ball.vel, subDt);
+          const p = ball.mesh.position;
+
+          // --- Tunnel Wall Bounces ---
+          if (p.x - BALL_RADIUS < -TUNNEL.halfW) {
+            p.x = -TUNNEL.halfW + BALL_RADIUS;
+            ball.vel.x = Math.abs(ball.vel.x);
+            sound.playWallBounce();
+            spawnWallRipple(new THREE.Vector3(-TUNNEL.halfW, p.y, p.z), new THREE.Vector3(1, 0, 0));
+          } else if (p.x + BALL_RADIUS > TUNNEL.halfW) {
+            p.x = TUNNEL.halfW - BALL_RADIUS;
+            ball.vel.x = -Math.abs(ball.vel.x);
+            sound.playWallBounce();
+            spawnWallRipple(new THREE.Vector3(TUNNEL.halfW, p.y, p.z), new THREE.Vector3(-1, 0, 0));
+          }
+
+          if (p.y - BALL_RADIUS < 0) {
+            p.y = BALL_RADIUS;
+            ball.vel.y = Math.abs(ball.vel.y);
+            sound.playWallBounce();
+            spawnWallRipple(new THREE.Vector3(p.x, 0, p.z), new THREE.Vector3(0, 1, 0));
+          } else if (p.y + BALL_RADIUS > TUNNEL.height) {
+            p.y = TUNNEL.height - BALL_RADIUS;
+            ball.vel.y = -Math.abs(ball.vel.y);
+            sound.playWallBounce();
+            spawnWallRipple(new THREE.Vector3(p.x, TUNNEL.height, p.z), new THREE.Vector3(0, -1, 0));
+          }
+
+          if (p.z - BALL_RADIUS < TUNNEL.backZ) {
+            p.z = TUNNEL.backZ + BALL_RADIUS;
+            ball.vel.z = Math.abs(ball.vel.z);
+            sound.playWallBounce();
+            spawnWallRipple(new THREE.Vector3(p.x, p.y, TUNNEL.backZ), new THREE.Vector3(0, 0, 1), 0x9b2cff);
+          }
+
+          // --- Holographic Racket Collision ---
+          const paddlePlaneZ = paddlePos.z;
+          if (
+            ball.vel.z > 0 &&
+            prevZ - BALL_RADIUS <= paddlePlaneZ + 0.14 &&
+            p.z + BALL_RADIUS >= paddlePlaneZ - 0.14
+          ) {
+            const dx = p.x - paddlePos.x;
+            const dy = p.y - paddlePos.y;
+            if (Math.abs(dx) <= paddleHalfW + BALL_RADIUS * 1.15 && Math.abs(dy) <= paddleHalfH + BALL_RADIUS * 1.15) {
+              p.z = paddlePlaneZ - BALL_RADIUS - 0.03;
+
+              const normX = THREE.MathUtils.clamp(dx / paddleHalfW, -1, 1);
+              const normY = THREE.MathUtils.clamp(dy / paddleHalfH, -1, 1);
+              const paddleNormal = new THREE.Vector3(0, 0, -1).applyQuaternion(paddleGroup.quaternion);
+
+              const bounceDir = new THREE.Vector3(
+                normX * 0.62 + paddleNormal.x * 0.65,
+                normY * 0.56 + paddleNormal.y * 0.65,
+                -1.0
+              ).normalize();
+
+              if (bounceDir.z > -0.68) {
+                bounceDir.z = -0.78;
+                bounceDir.normalize();
+              }
+
+              ball.speed = Math.min(ball.speed + 0.12, LEVELS[state.levelIdx].speed + 3.0);
+              ball.vel.copy(bounceDir).multiplyScalar(ball.speed);
+
+              state.combo = 0;
+              state.paddleHitFlash = 1.0;
+              state.paddleRecoilVel = 2.1; // Physical spring recoil kickback
+              hudDirty = true;
+              sound.playPaddleBounce();
+              triggerHaptic(0.75, 70);
+              spawnSparkStreaks(p, [0xffffff, 0x00f5ff, 0xffaa33], 18, 6.2);
+            }
+          }
+
+          // --- Brick Collisions ---
+          for (let j = bricks.length - 1; j >= 0; j--) {
+            const br = bricks[j];
+            const bp = br.mesh.position;
+
+            const cx = THREE.MathUtils.clamp(p.x, bp.x - br.halfW, bp.x + br.halfW);
+            const cy = THREE.MathUtils.clamp(p.y, bp.y - br.halfH, bp.y + br.halfH);
+            const cz = THREE.MathUtils.clamp(p.z, bp.z - br.halfD, bp.z + br.halfD);
+
+            const dx = p.x - cx;
+            const dy = p.y - cy;
+            const dz = p.z - cz;
+            if (dx * dx + dy * dy + dz * dz <= BALL_RADIUS * BALL_RADIUS) {
+              const ox = br.halfW + BALL_RADIUS - Math.abs(p.x - bp.x);
+              const oy = br.halfH + BALL_RADIUS - Math.abs(p.y - bp.y);
+              const oz = br.halfD + BALL_RADIUS - Math.abs(p.z - bp.z);
+
+              if (oz <= ox && oz <= oy) {
+                ball.vel.z = p.z > bp.z ? Math.abs(ball.vel.z) : -Math.abs(ball.vel.z);
+              } else if (ox <= oy) {
+                ball.vel.x = p.x > bp.x ? Math.abs(ball.vel.x) : -Math.abs(ball.vel.x);
+              } else {
+                ball.vel.y = p.y > bp.y ? Math.abs(ball.vel.y) : -Math.abs(ball.vel.y);
+              }
+
+              if (Math.abs(ball.vel.z) < ball.speed * 0.35) {
+                ball.vel.z = Math.sign(ball.vel.z || 1) * ball.speed * 0.45;
+                ball.vel.normalize().multiplyScalar(ball.speed);
+              }
+
+              damageBrick(br, j, new THREE.Vector3(cx, cy, cz));
+              break;
+            }
+          }
+
+          // --- Miss Plane Check ---
+          if (p.z > TUNNEL.missZ) {
+            removeBall(bi);
+            if (balls.length === 0) {
+              state.lives -= 1;
+              state.combo = 0;
+              hudDirty = true;
+              triggerHaptic(0.9, 140);
+              if (state.lives <= 0) {
+                triggerEndState(false);
+              } else {
+                sound.playLifeLost();
+                showBanner('BALL LOST', `${state.lives} ${state.lives === 1 ? 'LIFE' : 'LIVES'} REMAINING`, 1.5, '#ff4455');
+                createBall(true);
+                if (!state.inVR) launchHintEl.classList.add('show');
+              }
+            }
+          }
+        }
+      }
+    }
+
+    /* =========================================================================
+       15. MAIN ANIMATION LOOP (DESKTOP & WEBXR 60-90FPS)
+       ========================================================================= */
+    let lastTime = performance.now();
+    let hudTimer = 0;
+    let arcTimer = 0;
+
+    function animate(now) {
+      const dt = Math.min((now - lastTime) / 1000, 0.033);
+      lastTime = now;
+      const elapsed = now * 0.001;
+
+      // 1. Update Holographic Energy Racket Position, Banking, Recoil & Arcs
+      const targetScaleX = state.wideTimer > 0 ? 1.52 : 1.0;
+      state.paddleScaleX = THREE.MathUtils.lerp(state.paddleScaleX, targetScaleX, Math.min(1, dt * 8));
+      paddleGroup.scale.set(state.paddleScaleX, 1, 1);
+
+      const halfW = (BASE_PADDLE.width * state.paddleScaleX) / 2;
+      const halfH = BASE_PADDLE.height / 2;
+
+      if (state.inVR && state.activeController) {
+        const ctrlPos = new THREE.Vector3();
+        const ctrlQuat = new THREE.Quaternion();
+        state.activeController.getWorldPosition(ctrlPos);
+        state.activeController.getWorldQuaternion(ctrlQuat);
+
+        // Offset racket slightly upward from controller grip so it feels like holding the handle
+        const gripOffset = new THREE.Vector3(0, 0.24, -0.04).applyQuaternion(ctrlQuat);
+        ctrlPos.add(gripOffset);
+
+        paddleGroup.position.x = THREE.MathUtils.clamp(ctrlPos.x, -TUNNEL.halfW + halfW, TUNNEL.halfW - halfW);
+        paddleGroup.position.y = THREE.MathUtils.clamp(ctrlPos.y, halfH, TUNNEL.height - halfH);
+        paddleGroup.position.z = THREE.MathUtils.clamp(ctrlPos.z, -2.3, -0.35);
+        paddleGroup.quaternion.slerp(ctrlQuat, 0.62);
+      } else {
+        const clampedX = THREE.MathUtils.clamp(pointerTarget.x, -TUNNEL.halfW + halfW, TUNNEL.halfW - halfW);
+        const clampedY = THREE.MathUtils.clamp(pointerTarget.y, halfH, TUNNEL.height - halfH);
+        paddleGroup.position.x = THREE.MathUtils.lerp(paddleGroup.position.x, clampedX, Math.min(1, dt * 18));
+        paddleGroup.position.y = THREE.MathUtils.lerp(paddleGroup.position.y, clampedY, Math.min(1, dt * 18));
+        paddleGroup.position.z = TUNNEL.desktopPaddleZ;
+
+        // Ergonomic racket banking & tilt from velocity + slight natural wrist angle
+        const vx = (paddleGroup.position.x - prevPaddlePos.x) / Math.max(dt, 0.001);
+        const vy = (paddleGroup.position.y - prevPaddlePos.y) / Math.max(dt, 0.001);
+        paddleGroup.rotation.y = THREE.MathUtils.clamp(-vx * 0.032 - paddleGroup.position.x * 0.06, -0.34, 0.34);
+        paddleGroup.rotation.x = THREE.MathUtils.clamp(vy * 0.028 - 0.14, -0.36, 0.24);
+        paddleGroup.rotation.z = THREE.MathUtils.clamp(-vx * 0.02 - 0.08, -0.28, 0.22);
+
+        // Subtle desktop camera micro-shake (disabled in VR!)
+        if (state.screenShake > 0) {
+          state.screenShake = Math.max(0, state.screenShake - dt * 0.24);
+          camera.position.set(
+            desktopCamPos.x + (Math.random() - 0.5) * state.screenShake,
+            desktopCamPos.y + (Math.random() - 0.5) * state.screenShake,
+            desktopCamPos.z
+          );
+        } else {
+          camera.position.copy(desktopCamPos);
+        }
+      }
+      prevPaddlePos.copy(paddleGroup.position);
+
+      // Spring-damped physical recoil kickback on hit
+      state.paddleRecoilVel += (-state.paddleRecoilZ * 180 - state.paddleRecoilVel * 16) * dt;
+      state.paddleRecoilZ += state.paddleRecoilVel * dt;
+      paddleVisual.position.z = state.paddleRecoilZ;
+
+      // Rotate inner holographic reticle & crackle electric rim arcs (~26Hz)
+      paddleReticle.rotation.z -= dt * 0.9;
+      arcTimer += dt;
+      if (arcTimer >= 0.038) {
+        arcTimer = 0;
+        updateElectricArcs(elapsed);
+      }
+
+      // Hit ripple + flash across racket face
+      if (state.paddleHitFlash > 0) {
+        state.paddleHitFlash = Math.max(0, state.paddleHitFlash - dt * 3.8);
+        const prog = 1 - state.paddleHitFlash;
+        paddleFaceMat.opacity = 0.74 + state.paddleHitFlash * 0.26;
+        rimHaloMat.opacity = 0.34 + state.paddleHitFlash * 0.55;
+        paddleHitRipple.scale.setScalar(0.7 + prog * 3.4);
+        paddleHitRippleMat.opacity = state.paddleHitFlash * 0.95;
+      } else {
+        paddleFaceMat.opacity = 0.74;
+        rimHaloMat.opacity = 0.34;
+        paddleHitRippleMat.opacity = 0;
+      }
+
+      const laserActive = state.laserTimer > 0;
+      leftEmitter.visible = laserActive;
+      rightEmitter.visible = laserActive;
+      rimCoreMat.color.setHex(laserActive ? 0xffb8f5 : 0xbefeff);
+
+      // 2. Gameplay Physics, Power-ups & Lasers
+      if (state.mode === 'PLAYING') {
+        if (state.wideTimer > 0) { state.wideTimer = Math.max(0, state.wideTimer - dt); hudTimer += dt; }
+        if (state.laserTimer > 0) { state.laserTimer = Math.max(0, state.laserTimer - dt); hudTimer += dt; }
+        if (state.laserCooldown > 0) state.laserCooldown = Math.max(0, state.laserCooldown - dt);
+
+        stepPhysics(dt);
+
+        // Power-Up Capsules
+        for (let i = powerUps.length - 1; i >= 0; i--) {
+          const p = powerUps[i];
+          p.mesh.position.z += p.speedZ * dt;
+          p.mesh.rotation.y += dt * 3.0;
+          p.mesh.rotation.z = Math.sin(elapsed * 3.5 + i) * 0.22;
+
+          const dx = Math.abs(p.mesh.position.x - paddleGroup.position.x);
+          const dy = Math.abs(p.mesh.position.y - paddleGroup.position.y);
+          const dz = Math.abs(p.mesh.position.z - paddleGroup.position.z);
+          if (dx <= halfW + 0.26 && dy <= halfH + 0.26 && dz <= 0.34) {
+            applyPowerUp(p.type);
+            spawnSparkStreaks(p.mesh.position, [0xffffff, p.type.color], 22, 6.5);
+            scene.remove(p.mesh);
+            p.disposables.forEach(d => d.dispose());
+            powerUps.splice(i, 1);
+          } else if (p.mesh.position.z > TUNNEL.missZ) {
+            scene.remove(p.mesh);
+            p.disposables.forEach(d => d.dispose());
+            powerUps.splice(i, 1);
+          }
+        }
+
+        // Twin Lasers
+        for (let i = lasers.length - 1; i >= 0; i--) {
+          const l = lasers[i];
+          l.mesh.position.z += l.speedZ * dt;
+          let hit = false;
+          for (let j = bricks.length - 1; j >= 0; j--) {
+            const br = bricks[j];
+            const bp = br.mesh.position;
+            if (
+              Math.abs(l.mesh.position.x - bp.x) <= br.halfW + 0.06 &&
+              Math.abs(l.mesh.position.y - bp.y) <= br.halfH + 0.06 &&
+              Math.abs(l.mesh.position.z - bp.z) <= br.halfD + 0.24
+            ) {
+              damageBrick(br, j, l.mesh.position);
+              hit = true;
+              break;
+            }
+          }
+          if (hit || l.mesh.position.z < TUNNEL.backZ) {
+            scene.remove(l.mesh);
+            lasers.splice(i, 1);
+          }
+        }
+      } else if (state.mode === 'LEVEL_CLEAR') {
+        state.levelClearTimer -= dt;
+        if (state.levelClearTimer <= 0) {
+          if (state.levelIdx + 1 < LEVELS.length) loadLevel(state.levelIdx + 1);
+          else triggerEndState(true);
+        }
+      }
+
+      // 3. Fiery Plasma Balls, Comet Trails, Embers & Depth Ring
+      if (balls.length > 0) {
+        const primary = balls[0];
+        ballLight.position.copy(primary.mesh.position);
+        depthRing.visible = true;
+        depthRing.position.z = THREE.MathUtils.lerp(depthRing.position.z, primary.mesh.position.z, Math.min(1, dt * 22));
+
+        const prox = THREE.MathUtils.clamp((primary.mesh.position.z - TUNNEL.backZ) / (TUNNEL.desktopPaddleZ - TUNNEL.backZ), 0, 1);
+        depthRing.userData.material.color.setHSL(0.52 - prox * 0.45, 1.0, 0.56);
+
+        if (!primary.docked && primary.vel.z > 0) {
+          targetRing.position.set(primary.mesh.position.x, primary.mesh.position.y, paddleGroup.position.z - 0.01);
+          targetRingMat.opacity = 0.22 + prox * 0.58;
+        } else {
+          targetRingMat.opacity = 0;
+        }
+
+        for (const b of balls) {
+          b.auraRing.rotation.x += dt * 4.5;
+          b.auraRing.rotation.y += dt * 6.2;
+
+          if (!b.docked) {
+            b.history.unshift(b.mesh.position.clone());
+            if (b.history.length > b.trailSprites.length) b.history.pop();
+            for (let i = 0; i < b.trailSprites.length; i++) {
+              if (b.history[i]) {
+                b.trailSprites[i].visible = true;
+                b.trailSprites[i].position.copy(b.history[i]);
+              }
+            }
+            b.emberAccum += dt;
+            if (b.emberAccum >= 0.022) {
+              b.emberAccum = 0;
+              spawnCometEmber(b.mesh.position, b.vel);
+            }
+          }
+        }
+      } else {
+        depthRing.visible = false;
+        targetRingMat.opacity = 0;
+      }
+
+      // 4. Brick Damage Flash Recovery
+      for (const br of bricks) {
+        if (br.flashTimer > 0) {
+          br.flashTimer -= dt;
+          if (br.flashTimer <= 0) {
+            br.mat.emissive.setHex(br.armored ? 0x0e182c : br.baseColor);
+            br.mat.emissiveIntensity = br.armored ? 0.38 : 0.56;
+          }
+        }
+      }
+
+      // 5. Update Impact Flash Light, Angular Shards, Spark Streaks, Embers & Shockwaves
+      if (impactFlashTimer > 0) {
+        impactFlashTimer = Math.max(0, impactFlashTimer - dt);
+        impactFlashLight.intensity = (impactFlashTimer / 0.22) * 10.5;
+      }
+
+      for (const s of shardPool) {
+        if (s.life <= 0) continue;
+        s.life -= dt;
+        if (s.life <= 0) { s.mesh.visible = false; continue; }
+        s.vel.y -= 9.8 * dt;
+        s.mesh.position.addScaledVector(s.vel, dt);
+
+        // Bounce shards off floor & side walls
+        if (s.mesh.position.y < 0.06) { s.mesh.position.y = 0.06; s.vel.y *= -0.48; }
+        if (s.mesh.position.x < -TUNNEL.halfW + 0.08) { s.mesh.position.x = -TUNNEL.halfW + 0.08; s.vel.x *= -0.6; }
+        if (s.mesh.position.x >  TUNNEL.halfW - 0.08) { s.mesh.position.x =  TUNNEL.halfW - 0.08; s.vel.x *= -0.6; }
+
+        s.mesh.rotation.x += s.rot.x * dt;
+        s.mesh.rotation.y += s.rot.y * dt;
+        s.mesh.rotation.z += s.rot.z * dt;
+
+        const ratio = s.life / s.maxLife;
+        s.mesh.scale.setScalar(s.baseScale * Math.min(1, ratio * 1.4));
+        s.mat.opacity = Math.min(1, ratio * 1.6);
+        s.edgeMat.opacity = Math.min(1, ratio * 1.8);
+      }
+
+      for (const st of streakPool) {
+        if (st.life <= 0) continue;
+        st.life -= dt;
+        if (st.life <= 0) { st.mesh.visible = false; continue; }
+        st.vel.y -= 4.2 * dt;
+        st.mesh.position.addScaledVector(st.vel, dt);
+        st.vel.multiplyScalar(0.95);
+        st.mesh.lookAt(
+          st.mesh.position.x + st.vel.x,
+          st.mesh.position.y + st.vel.y,
+          st.mesh.position.z + st.vel.z
+        );
+        const ratio = st.life / st.maxLife;
+        st.mat.opacity = ratio;
+        st.mesh.scale.set(1, 1, 0.35 + ratio * 0.9);
+      }
+
+      for (const e of emberPool) {
+        if (e.life <= 0) continue;
+        e.life -= dt;
+        if (e.life <= 0) { e.sprite.visible = false; continue; }
+        e.sprite.position.addScaledVector(e.vel, dt);
+        const ratio = e.life / e.maxLife;
+        e.mat.opacity = ratio * 0.85;
+        const sz = e.size * ratio;
+        e.sprite.scale.set(sz, sz, 1);
+      }
+
+      for (const sw of shockwavePool) {
+        if (sw.life <= 0) continue;
+        sw.life -= dt;
+        if (sw.life <= 0) { sw.ring.visible = false; sw.flare.visible = false; continue; }
+        const t = 1 - sw.life / sw.maxLife;
+        sw.ring.scale.setScalar(0.5 + t * 5.2);
+        sw.ringMat.opacity = (1 - t) * 0.9;
+        const fScale = 2.1 * (1 - t * 0.65);
+        sw.flare.scale.set(fScale, fScale, 1);
+        sw.flareMat.opacity = Math.pow(1 - t, 1.5);
+      }
+
+      for (let i = ripples.length - 1; i >= 0; i--) {
+        const r = ripples[i];
+        r.life -= dt;
+        if (r.life <= 0) {
+          scene.remove(r.mesh);
+          r.mesh.material.dispose();
+          ripples.splice(i, 1);
+          continue;
+        }
+        const t = 1 - r.life / r.maxLife;
+        r.mesh.scale.setScalar(1 + t * 3.8);
+        r.mesh.material.opacity = (1 - t) * 0.85;
+      }
+
+      // 6. Banner & Winged HUD Updates
+      if (state.bannerTimer > 0) {
+        state.bannerTimer -= dt;
+        if (state.bannerTimer <= 0) {
+          bannerEl.classList.remove('show');
+          vrBannerHUD.visible = false;
+        }
+      }
+
+      if (hudDirty || hudTimer >= 0.14) {
+        hudTimer = 0;
+        refreshDiegeticHUD();
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    refreshDiegeticHUD();
+    window.onload = () => {
+      renderer.setAnimationLoop(animate);
+    };
+  </script>
+</body>
+</html>
